@@ -38,7 +38,20 @@ async fn standalone_saved_privacy_blocks_uploads_on_worker_threads() {
         crate::security::live_policy::current_privacy_mode(),
         PrivacyMode::Standard
     );
-    install_standalone_policy(&config);
+    // Stop at the component boundary before any native recorder can load,
+    // while exercising the actual standalone entry point's policy wiring.
+    config.components.voice = false;
+    let startup_error = run_standalone(
+        &crate::core::runtime::DispatchCtx::host_default(),
+        config.clone(),
+        VoiceServerConfig::default(),
+    )
+    .await
+    .unwrap_err();
+    assert!(
+        startup_error.contains("COMPONENT_DISABLED:voice"),
+        "{startup_error}"
+    );
     let error = tokio::spawn(async move {
         assert_eq!(
             crate::security::live_policy::current_privacy_mode(),
