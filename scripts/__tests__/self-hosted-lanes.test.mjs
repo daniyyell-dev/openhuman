@@ -785,3 +785,15 @@ test("process-static scan uses cancellation supervision in both profiles", () =>
     );
   }
 });
+
+
+test("hosted containers repair the mounted home before module-dependent checks", () => {
+  const hosted = ciLanes.slice(ciLanes.indexOf("  lanes:\n"));
+  const repair = hosted.indexOf("      - name: Repair container home ownership");
+  const dependencies = hosted.indexOf("      - name: Check out submodules");
+  assert.ok(repair >= 0 && repair < dependencies);
+  const step = hosted.slice(repair, hosted.indexOf("\n      - name:", repair + 1));
+  assert.match(step, /if: matrix\.container != ''/);
+  assert.match(step, /run: chown "\$\(id -u\):\$\(id -g\)" "\$HOME"/);
+  assert.doesNotMatch(step, /chown\s+-R|chmod|TINYBUS|GITHUB_ENV/);
+});
