@@ -429,3 +429,8 @@ separate transport and are outside this change.
 Regression tests in [`egress_tests.rs`](./egress_tests.rs) exercise hosted STT/TTS,
 OpenAI-compatible STT/TTS, Deepgram STT and ElevenLabs STT/TTS against loopback
 mock servers, with the `voice` Cargo feature enabled.
+
+Standalone voice installs the loaded configuration’s live security policy before
+starting recording tasks, so worker threads enforce the saved privacy mode.
+External speech clients reject redirects because transfer disclosures name only
+the configured origin; users must configure the final provider endpoint directly.

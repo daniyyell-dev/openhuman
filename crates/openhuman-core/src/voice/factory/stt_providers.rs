@@ -100,7 +100,7 @@ impl ExternalSttProvider {
             endpoint: endpoint.clone(),
             api_style,
             client: ExternalSttClient::new(
-                reqwest::Client::new(),
+                super::super::egress::speech_http_client(),
                 model,
                 endpoint,
                 api_key,

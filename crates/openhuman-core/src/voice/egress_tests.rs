@@ -328,3 +328,47 @@ fn invalid_speech_endpoints_fail_without_echoing_configuration() {
         assert!(!err.contains("secret"));
     }
 }
+
+#[tokio::test]
+async fn external_speech_redirects_never_replay_content_to_another_origin() {
+    if !isolated_event_test("external_speech_redirects_never_replay_content_to_another_origin") {
+        return;
+    }
+    crate::core::bus::init().await.unwrap();
+    let _mode = test_privacy_scope(PrivacyMode::Standard);
+    for status in [307, 308] {
+        for route in [
+            Route::OpenaiStt,
+            Route::DeepgramStt,
+            Route::ElevenlabsStt,
+            Route::OpenaiTts,
+            Route::ElevenlabsTts,
+        ] {
+            let source = MockServer::start().await;
+            let target = MockServer::start().await;
+            Mock::given(method("POST"))
+                .and(path(route.path()))
+                .respond_with(
+                    ResponseTemplate::new(status)
+                        .insert_header("location", format!("{}{}", target.uri(), route.path())),
+                )
+                .mount(&source)
+                .await;
+            Mock::given(method("POST"))
+                .and(path(route.path()))
+                .respond_with(route.response())
+                .mount(&target)
+                .await;
+            let result = route.call(&Config::default(), &source.uri()).await;
+            assert!(
+                result.is_err(),
+                "{route:?} accepted redirect {status}: {result:?}"
+            );
+            assert_eq!(source.received_requests().await.unwrap().len(), 1);
+            assert!(
+                target.received_requests().await.unwrap().is_empty(),
+                "{route:?} replayed content after {status}"
+            );
+        }
+    }
+}

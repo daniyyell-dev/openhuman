@@ -143,7 +143,12 @@ impl ExternalTtsProvider {
             endpoint: endpoint.clone(),
             default_voice: default_voice.into(),
             api_style,
-            client: ExternalTtsClient::new(reqwest::Client::new(), endpoint, api_key, api_style),
+            client: ExternalTtsClient::new(
+                super::super::egress::speech_http_client(),
+                endpoint,
+                api_key,
+                api_style,
+            ),
         }
     }
 }

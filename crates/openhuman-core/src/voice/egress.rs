@@ -37,3 +37,12 @@ pub(super) fn disclose_speech_transfer(
 #[cfg(test)]
 #[path = "egress_tests.rs"]
 mod tests;
+
+// A speech disclosure names one configured origin. Do not replay user content
+// to a redirect target that has not been checked or disclosed by OpenHuman.
+pub(super) fn speech_http_client() -> reqwest::Client {
+    reqwest::Client::builder()
+        .redirect(reqwest::redirect::Policy::none())
+        .build()
+        .expect("failed to build speech HTTP client")
+}
