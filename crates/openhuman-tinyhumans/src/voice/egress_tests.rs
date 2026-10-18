@@ -228,3 +228,17 @@ async fn sensitive_hosted_speech_discloses_destination_and_preserves_results() {
     }
     check_speech_requests(PrivacyMode::Sensitive).await;
 }
+
+#[test]
+fn invalid_hosted_speech_endpoints_do_not_echo_configuration() {
+    for endpoint in [
+        "not a url containing secret",
+        "file:///private/secret",
+        "mailto:secret@example.test",
+    ] {
+        let error =
+            disclose_speech_transfer("hosted-test", endpoint, DataKind::Prompt).unwrap_err();
+        assert!(error.contains("speech provider endpoint"));
+        assert!(!error.contains("secret"));
+    }
+}
