@@ -1,6 +1,7 @@
 use super::*;
 use crate::config::PrivacyMode;
-use crate::voice::factory::{CloudSttProvider, SttProvider};
+use crate::voice::factory::{ExternalSttProvider, SttProvider};
+use tinyinference_voice::external_stt::SttApiStyle;
 use wiremock::MockServer;
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
@@ -52,15 +53,22 @@ async fn standalone_saved_privacy_blocks_uploads_on_worker_threads() {
         startup_error.contains("COMPONENT_DISABLED:voice"),
         "{startup_error}"
     );
+    let endpoint = mock.uri();
     let error = tokio::spawn(async move {
         assert_eq!(
             crate::security::live_policy::current_privacy_mode(),
             PrivacyMode::LocalOnly
         );
-        CloudSttProvider::new("test-model")
-            .transcribe(&config, "AQID", Some("audio/wav"), None, None)
-            .await
-            .unwrap_err()
+        ExternalSttProvider::new(
+            "test-speech",
+            "test-model",
+            endpoint,
+            "dummy-key",
+            SttApiStyle::OpenaiAudio,
+        )
+        .transcribe(&config, "AQID", Some("audio/wav"), None, None)
+        .await
+        .unwrap_err()
     })
     .await
     .unwrap();
