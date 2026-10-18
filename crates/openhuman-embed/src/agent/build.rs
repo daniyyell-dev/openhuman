@@ -7,7 +7,7 @@
 
 use std::path::Path;
 
-use openhuman_core::agent::harness::host_definition::{AgentDefinition, AgentDefinitionRegistry};
+use openhuman_core::agent_registry::host_definition::{AgentDefinition, AgentDefinitionRegistry};
 use openhuman_core::core::all::DomainGroup;
 use openhuman_core::core::runtime::{ContextOverlay, DomainSet};
 use openhuman_core::tools::toolpacks::{GroupMode, ToolGroups};
@@ -294,8 +294,8 @@ pub(crate) fn instantiate(runtime: &Runtime, spec: AgentSpec) -> Result<AgentInn
         overrides.named_tools = Some(std::sync::Arc::new(names.iter().cloned().collect()));
     }
     let overrides = std::sync::Arc::new(overrides);
-    for hook in parts.post_turn_hooks {
-        overrides.post_turn_hook(hook.name(), Some(hook.clone()));
+    for (index, hook) in parts.post_turn_hooks.into_iter().enumerate() {
+        overrides.post_turn_hook(&format!("agent.learning_sink.{index:020}"), Some(hook));
     }
     for hook in parts.tool_hooks {
         overrides.tool_hook(hook.name(), Some(hook.clone()));

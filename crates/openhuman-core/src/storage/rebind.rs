@@ -51,7 +51,7 @@ pub fn rebind(config: &Config) -> Result<Option<Rebound>> {
     rebind_with(config, super::installed_url(), |url, backend| {
         // Sessions first: no store may read one workspace's sessions beside
         // another's documents, so both move together.
-        let rebound = crate::agent::session_store::rebind_all(&backend);
+        let rebound = crate::storage::sessions::rebind_all(&backend);
         super::install_for_url(url, backend);
         rebound
     })

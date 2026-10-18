@@ -118,7 +118,7 @@ crate README's "Still process-owned" list names what agents share, and its
   builder and installs the SDK transport on `build()`; see
   [`docs/gitbooks/en/developing/tinyhumans-api-key.md`](../../../../docs/gitbooks/en/developing/tinyhumans-api-key.md).
 - The session store port (`SessionStoreProvider`) is defined by
-  [`vendor/tinyagents`](../../../../vendor/tinyagents/) and the core's `agent::session_store`; the classic
+  [`vendor/tinyagents`](../../../../vendor/tinyagents/) and the core's `storage::sessions`; the classic
   on-disk provider lives in `openhuman-rpc`'s `session_store`.
 
 ## Gotchas

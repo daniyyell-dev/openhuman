@@ -220,6 +220,25 @@ fi
 log "running complete instrumented Rust suite (runner: ${OH_COV_RUNNER:-cargo})"
 llvm_cov clean --workspace
 
+# The storage-host cdylib tests load a real fixture module. Left to the tests,
+# every test process (nextest runs one per test) runs its own `cargo build` of
+# it and queues on the fixture target's lock: 14 tests at ~30-40 s each. Build
+# it once, uninstrumented exactly as the tests would, and hand them the path.
+if [ -z "${OPENHUMAN_STORAGE_PROBE_MODULE:-}" ]; then
+  probe_target="${PWD}/target/storage-probe"
+  log "building the storage probe module once into ${probe_target}"
+  env -u RUSTFLAGS -u CARGO_ENCODED_RUSTFLAGS -u RUSTC_WRAPPER -u CARGO_TARGET_DIR \
+    bash scripts/ci-cancel-aware.sh cargo build --quiet \
+    --manifest-path tests/fixtures/storage_probe_module/Cargo.toml \
+    --target-dir "${probe_target}"
+  case "$(uname -s)" in
+    Darwin) probe_file="libstorage_probe_module.dylib" ;;
+    MINGW* | MSYS* | CYGWIN*) probe_file="storage_probe_module.dll" ;;
+    *) probe_file="libstorage_probe_module.so" ;;
+  esac
+  export OPENHUMAN_STORAGE_PROBE_MODULE="${probe_target}/debug/${probe_file}"
+fi
+
 # Keep the private invocations sequential in the configured coverage target.
 # Each package retains its own feature resolution; instrumentation is merged
 # once after all suites, including successful suites before a failure.

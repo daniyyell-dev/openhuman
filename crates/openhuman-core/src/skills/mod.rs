@@ -27,6 +27,8 @@ pub mod ops_types;
 // outright: it has always-compiled callers in `crates/openhuman-core/src/core/` and is not part of
 // the `skills` gate at all.
 pub mod catalog;
+#[cfg(feature = "skills")]
+pub(crate) mod run_workflow;
 
 /// Whether the ambient context has the `skills` component on. No ambient
 /// context (a bare library call) counts as on.

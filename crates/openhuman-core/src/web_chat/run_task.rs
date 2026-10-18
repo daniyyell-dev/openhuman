@@ -7,7 +7,7 @@
 use std::sync::Arc;
 use tinyagents_harness::run_queue::RunQueue;
 
-use crate::agent::progress::AgentProgress;
+use crate::progress::AgentProgress;
 
 use super::ops::BudgetCorrelation;
 use super::progress_bridge::spawn_progress_bridge;
@@ -35,7 +35,7 @@ pub(crate) async fn run_chat_task(
     locale: Option<String>,
     run_queue: Arc<RunQueue<crate::agent::queued_turn::QueuedTurn>>,
     metadata: ChatRequestMetadata,
-    origin: crate::agent::turn_origin::AgentTurnOrigin,
+    origin: crate::security::turn_origin::AgentTurnOrigin,
     // When true, run as an isolated fork: build a fresh agent seeded from the
     // thread's history-at-start and never touch the shared `THREAD_SESSIONS`
     // cache, so a concurrent same-thread (parallel) turn cannot clobber — or be
@@ -180,7 +180,7 @@ pub(crate) async fn run_chat_task(
     if let Some(dir) = thread_dir {
         agent.set_workspace_descriptor(Some(tinytools::WorkspaceDescriptor::new(dir)));
     }
-    let turn_state_store = crate::agent::session_store::turn_states_for(&config.workspace_dir);
+    let turn_state_store = crate::storage::sessions::turn_states_for(&config.workspace_dir);
     // Stamp the resolved agent onto the bridge metadata so the trace exporter
     // can attribute the run (`agent.id` attr / `agent.turn:<id>` trace name).
     let mut bridge_metadata = metadata.clone();
@@ -400,7 +400,7 @@ pub(crate) async fn run_chat_task(
             tinyagents_session::turn_state::TurnLifecycle::Interrupted
         };
         let now = chrono::Utc::now().to_rfc3339();
-        if let Err(err) = crate::agent::session_store::turn_states_for(&config.workspace_dir)
+        if let Err(err) = crate::storage::sessions::turn_states_for(&config.workspace_dir)
             .settle_turn(thread_id, request_id, lifecycle, &now)
         {
             log::warn!(

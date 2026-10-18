@@ -32,9 +32,11 @@ pub mod http;
 pub mod model_context;
 pub mod ops;
 pub mod provider;
+pub(crate) mod reasoning;
 pub mod registry;
 mod schemas;
 pub mod tokenjuice;
+pub mod turn_models;
 
 pub use ops as rpc;
 pub use schemas::{

@@ -88,7 +88,7 @@ impl Default for Config {
             proxy: ProxyConfig::default(),
             cost: CostConfig::default(),
             legacy_memory_sources: Vec::new(),
-            agent_registry: crate::agent::registry::types::AgentRegistryConfig::default(),
+            agent_registry: crate::agent_registry::types::AgentRegistryConfig::default(),
             agents: HashMap::new(),
             local_ai: LocalAiConfig::default(),
             claude_agent_sdk: ClaudeAgentSdkConfig::default(),

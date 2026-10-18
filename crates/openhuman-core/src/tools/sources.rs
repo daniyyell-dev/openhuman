@@ -20,9 +20,9 @@ use std::sync::Arc;
 
 use tinytools::Tool;
 
-use crate::agent::host_runtime::RuntimeAdapter;
 use crate::config::{BrowserConfig, Config, DelegateAgentConfig, HttpRequestConfig};
 use crate::core::slots::HookSlot;
+use crate::modules::tinybox::host_runtime::RuntimeAdapter;
 use crate::security::{AuditLogger, SecurityPolicy};
 
 /// What a tool source can see while the catalogue is assembled: the same

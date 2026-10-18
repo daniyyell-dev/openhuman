@@ -32,7 +32,7 @@ fn checkpoint_data(task_id: &str) -> SubagentCheckpointData {
 // `../` walks the write out of the checkpoint directory entirely.
 
 #[test]
-fn a_traversing_task_id_is_refused() {
+fn a_traversing_task_id_is_refused_rather_than_written() {
     for bad in [
         "../../etc/cron.d/pwn",
         "a/b",

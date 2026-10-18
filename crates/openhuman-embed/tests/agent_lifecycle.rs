@@ -258,7 +258,7 @@ fn removing_an_agent_releases_everything_it_held() {
                 Duration::from_secs(10),
                 openhuman_core::core::runtime::CoreContext::scope(
                     old_context,
-                    openhuman_core::agent::turn_origin::with_origin(
+                    openhuman_core::security::turn_origin::with_origin(
                         AgentTurnOrigin::WebChat {
                             thread_id: "late-lifecycle-thread".into(),
                             client_id: "late-lifecycle-client".into(),
@@ -292,7 +292,7 @@ fn removing_an_agent_releases_everything_it_held() {
                         agent_id,
                         ..
                     }) if request_id == request.request_id => {
-                        break (decision, resolution, agent_id)
+                        break (decision, resolution, agent_id);
                     }
                     Some(_) => {}
                     None => panic!("bus closed"),

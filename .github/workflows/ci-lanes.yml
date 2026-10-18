@@ -14,6 +14,8 @@
 #           those runners, with GitHub's Actions cache.
 #
 # Area flags pick whole suites. Nothing here narrows a suite to changed files.
+# Timing probes touch this workflow to select every CI area. Compare actual
+# checkout SHAs, runner resources, cache counters and complete job times.
 name: CI Lanes
 
 on:

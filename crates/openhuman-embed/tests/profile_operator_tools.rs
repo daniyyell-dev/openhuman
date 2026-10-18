@@ -141,7 +141,7 @@ async fn scenario() {
                 .map(String::from)
                 .to_vec(),
         ))
-        .can_use_tool(|_| Box::pin(async { ToolHookDecision::Proceed }))
+        .can_use_tool(|_| Box::pin(async { ToolHookDecision::default() }))
         .channel_permissions([("web_channel", PermissionLevel::Execute)])
         .cron_delivery(recorder.clone())
         .build()

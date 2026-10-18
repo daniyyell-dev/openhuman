@@ -99,7 +99,7 @@ pub(crate) async fn bootstrap_core_runtime(
     //
     // An installed host session store repairs itself, once; with none, the
     // workspace default store is swept.
-    let host_store = crate::agent::session_store::installed_in(ctx);
+    let host_store = crate::storage::sessions::installed_in(ctx);
     if let Some(provider) = &host_store {
         match provider.recover() {
             Ok(()) => log::info!("[runtime] host session store recovered"),
@@ -108,7 +108,7 @@ pub(crate) async fn bootstrap_core_runtime(
     }
     if host_store.is_none() {
         let now = chrono::Utc::now().to_rfc3339();
-        match crate::agent::session_store::default_turn_states_for(&workspace_dir)
+        match crate::storage::sessions::default_turn_states_for(&workspace_dir)
             .mark_all_interrupted(&now)
         {
             Ok(0) => {}
@@ -129,10 +129,9 @@ pub(crate) async fn bootstrap_core_runtime(
     // rendering as perpetual "running" timeline entries on thread reopen.
     if agent_enabled {
         if !crate::storage::installed_is_shared() {
-            match crate::agent::session_store::with_ledger(
-                &cfg.workspace_dir,
-                |ledger| async move { ledger.interrupt_orphaned_agent_runs().await },
-            ) {
+            match crate::storage::sessions::with_ledger(&cfg.workspace_dir, |ledger| async move {
+                ledger.interrupt_orphaned_agent_runs().await
+            }) {
                 Ok(0) => {}
                 Ok(count) => {
                     log::info!("[runtime] settled {count} orphaned agent run(s) on startup")
@@ -190,7 +189,7 @@ pub(crate) async fn bootstrap_core_runtime(
     // multiple times. Uses the per-user scoped workspace_dir.
     if agent_enabled {
         if let Err(err) =
-            crate::agent::harness::host_definition::AgentDefinitionRegistry::init_global(
+            crate::agent_registry::host_definition::AgentDefinitionRegistry::init_global(
                 &workspace_dir,
             )
         {

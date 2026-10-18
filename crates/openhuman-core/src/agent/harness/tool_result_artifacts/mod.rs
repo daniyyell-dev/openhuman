@@ -13,7 +13,7 @@
 //! * **the read limit**: the largest body `file_read` will open
 //!   ([`FileReadTool::MAX_FILE_SIZE_BYTES`]);
 //! * **where the bodies live**: on the acting tenant's scoped blob store
-//!   ([`crate::agent::session_store::artifact_blobs_for`]), under the
+//!   ([`crate::storage::sessions::artifact_blobs_for`]), under the
 //!   `tool-results/<session>/<tool>/<call>.txt` key the pointer quotes. Nothing
 //!   is written into the project the agent is working in;
 //! * **how `file_read` opens one**: `file_read` reads the filesystem, so a read

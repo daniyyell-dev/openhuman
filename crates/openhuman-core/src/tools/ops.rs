@@ -1,10 +1,10 @@
 #[cfg(feature = "mcp")]
 use super::implementations::network::{McpListServersTool, McpListToolsTool};
 use super::*;
-use crate::agent::host_runtime::{NativeRuntime, RuntimeAdapter};
-use crate::agent::tools::DelegateTool;
 use crate::config::{Config, DelegateAgentConfig};
+use crate::modules::tinybox::host_runtime::{NativeRuntime, RuntimeAdapter};
 use crate::security::{AuditLogger, SecurityPolicy};
+use crate::tools::delegate::DelegateTool;
 use std::collections::HashMap;
 use std::sync::Arc;
 use tinyagents_harness::tools::{CurrentTimeTool, ResolveTimeTool};
@@ -168,11 +168,11 @@ pub fn all_tools_with_runtime(
         // default-OFF via `tools::user_filter` (their toggle IDs default off
         // in onboarding). The per-call permission ladder still gates them.
     ]);
-    tools.extend(crate::agent::artifacts::tiny_store::registered_tools(
+    tools.extend(crate::artifacts::tiny_store::registered_tools(
         &config.workspace_dir,
-        crate::agent::artifacts::FileRoots::from_config(&config),
+        crate::artifacts::FileRoots::from_config(&config),
         action_dir,
-        crate::agent::artifacts::artifact_publisher(&config),
+        crate::artifacts::artifact_publisher(&config),
     ));
     tools.extend(crate::integrations::task_sources::tools::registered_tools(
         config.clone(),
@@ -415,7 +415,7 @@ pub fn all_tools_with_runtime(
             .media_files_roots
             .lock()
             .unwrap_or_else(std::sync::PoisonError::into_inner) =
-            Some(crate::agent::artifacts::FileRoots::from_config(root_config));
+            Some(crate::artifacts::FileRoots::from_config(root_config));
     }
 
     // What every registered tool source can see (`tools::sources`).

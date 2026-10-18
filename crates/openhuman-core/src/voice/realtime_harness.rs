@@ -29,7 +29,7 @@ pub use prompt::extract_prompt;
 pub use turn_handler::handle_voice_harness_turn;
 
 #[cfg(test)]
-use crate::agent::progress::AgentProgress;
+use crate::progress::AgentProgress;
 #[cfg(test)]
 use prompt::{
     is_answerable_prompt, is_content_free, messages_to_history_pairs, readback_payload,

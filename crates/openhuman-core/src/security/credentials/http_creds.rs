@@ -192,6 +192,11 @@ struct PersistedHttpCredential {
     updated_at: String,
 }
 
+/// Whether `bytes` parse as the persisted HTTP-credentials document.
+pub(crate) fn is_persisted_document(bytes: &[u8]) -> bool {
+    serde_json::from_slice::<PersistedHttpCredentials>(bytes).is_ok()
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 struct PersistedHttpCredentials {
     schema_version: u32,

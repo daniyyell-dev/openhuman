@@ -96,6 +96,24 @@ export function historicalFindings(root, scanner) {
     }
   }
   const base = git(["merge-base", ref, "HEAD"]).trim();
+  // Git must identify a rename (the original path disappears). Copies and
+  // new files retain their own identity. Only the path changes: exact writer
+  // text and occurrence remain part of every debt/allowance key.
+  const changes = git([
+    "diff", "--name-status", "-z", "--find-renames=50%", base, "--", "crates",
+  ]).split("\0");
+  const renamed = new Map();
+  for (let at = 0; at < changes.length && changes[at];) {
+    const status = changes[at++];
+    const from = changes[at++];
+    if (/^[RC]/.test(status)) {
+      const to = changes[at++];
+      if (status.startsWith("R")) renamed.set(from, to);
+    }
+  }
+  const relocated = (record) => renamed.has(record.path)
+    ? { ...record, path: renamed.get(record.path) }
+    : record;
   const files = git([
     "ls-tree",
     "-r",
@@ -111,9 +129,10 @@ export function historicalFindings(root, scanner) {
   const rawFindings = [];
   const add = (path, source) => {
     if (!scanner.isTestFile(path)) {
-      const raw = scanner.scan(path, source);
+      const destination = renamed.get(path) ?? path;
+      const raw = scanner.scan(destination, source);
       rawFindings.push(...raw);
-      findings.push(...scanner.withoutAllowed(path, raw));
+      findings.push(...scanner.withoutAllowed(destination, raw));
     }
   };
   for (const file of files) add(file, git(["show", `${base}:${file}`]));
@@ -142,7 +161,7 @@ export function historicalFindings(root, scanner) {
     const value = JSON.parse(git(["show", `${base}:${path}`]));
     if (!Array.isArray(value))
       throw new Error(`Canonical manifest must be an array: ${path}`);
-    return value;
+    return value.map(relocated);
   };
   return {
     base,
