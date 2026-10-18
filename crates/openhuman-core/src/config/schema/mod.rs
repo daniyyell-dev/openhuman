@@ -6,6 +6,8 @@ pub mod cloud_providers;
 pub use cloud_providers::{generate_provider_id, is_slug_reserved, AuthStyle, CloudProviderCreds};
 pub mod ephemeral_route;
 pub use ephemeral_route::{EphemeralRoute, EPHEMERAL_ROUTE_SLUG};
+pub mod resolved_endpoints;
+pub use resolved_endpoints::ResolvedEndpoints;
 mod agent;
 mod autonomy;
 mod capability_providers;
@@ -35,6 +37,7 @@ pub use profile_layout::{users_dir, ProfileLayout};
 mod identity_cost;
 mod load;
 pub(crate) use load::config_from_toml_str;
+pub(crate) use load::source::storage_schema::storage_schema as config_storage_schema;
 pub use load::{
     action_dir_env_override, active_user_marker_path, active_workspace_dir,
     active_workspace_dir_cached, active_workspace_snapshot, clear_active_user, default_action_dir,

@@ -46,7 +46,6 @@ modules/ops_components_tests.rs
 modules/registry_tests.rs
 modules/runtime.rs
 modules/runtime_tests.rs
-modules/storage_grant_tinywallet_tests.rs
 platform/socket/event_handlers.rs
 profiles/surface_tests.rs
 threads/store/mod.rs
@@ -56,7 +55,9 @@ mcp/host.rs
 modules/registry_contract_tests.rs
 modules/registry.rs
 security/credentials/ops/credential.rs
+storage/boot.rs
 storage/import/tinyflows.rs
+storage/schema.rs
 skills/bundled/mod.rs
 skills/mod.rs
 skills/search.rs

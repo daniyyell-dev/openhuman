@@ -102,11 +102,20 @@ pub(crate) struct ResolvedWorkspace {
 /// drops: the runtime, or a deferred agent cleanup that must keep the files
 /// until the MCP module acknowledges its close. Shared on its own so that
 /// cleanup never has to hold the whole runtime (and its process slot).
-pub(crate) struct EphemeralRoot(Option<tempfile::TempDir>);
+pub(crate) struct EphemeralRoot {
+    temp: Option<tempfile::TempDir>,
+    preserve: std::sync::atomic::AtomicBool,
+}
+impl EphemeralRoot {
+    pub(crate) fn preserve(&self) {
+        self.preserve
+            .store(true, std::sync::atomic::Ordering::Release);
+    }
+}
 
 impl Drop for EphemeralRoot {
     fn drop(&mut self) {
-        let Some(temp) = self.0.take() else {
+        let Some(temp) = self.temp.take() else {
             return;
         };
         // Take ownership of the temp path and remove it with a short retry.
@@ -116,6 +125,13 @@ impl Drop for EphemeralRoot {
         // directory behind. A bounded retry lets those writes settle before
         // giving up.
         let root = temp.keep();
+        if self.preserve.load(std::sync::atomic::Ordering::Acquire) {
+            log::warn!(
+                "[embed][runtime] unresolved cleanup; preserved ephemeral workspace at {}",
+                root.display()
+            );
+            return;
+        }
         let mut quiet_passes = 0;
         for _ in 0..20 {
             match std::fs::remove_dir_all(&root) {
@@ -177,7 +193,10 @@ impl ResolvedWorkspace {
                     workspace_dir,
                     action_dir,
                     config_path: root.join("config.toml"),
-                    _temp: Some(std::sync::Arc::new(EphemeralRoot(Some(temp)))),
+                    _temp: Some(std::sync::Arc::new(EphemeralRoot {
+                        temp: Some(temp),
+                        preserve: Default::default(),
+                    })),
                 })
             }
             Workspace::Dir(dir) => {
