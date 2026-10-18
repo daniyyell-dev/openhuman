@@ -186,9 +186,12 @@ pub async fn synthesize_reply(
     // string, which matched none of the session-expiry classifiers and leaked
     // every lapsed-session TTS 401 to Sentry (TAURI-RUST-8X1). Every other error
     // keeps its full `{e:#}` anyhow chain so genuine TTS failures still report.
+    let speech_url = client
+        .url_for(SPEECH_PATH)
+        .map_err(|error| error.to_string())?;
     super::egress::disclose_speech_transfer(
         "openhuman_backend",
-        &api_url,
+        speech_url.as_str(),
         super::egress::DataKind::Prompt,
     )?;
     let raw = client

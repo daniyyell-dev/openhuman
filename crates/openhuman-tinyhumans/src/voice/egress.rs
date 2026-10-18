@@ -5,11 +5,10 @@
 //! the integration control-plane exemption would otherwise allow
 //! `/openai/v1/audio/*` without a disclosure.
 
+pub(super) use openhuman_embed::__host::egress::DataKind;
 use openhuman_embed::__host::egress::{
-    emit_external_transfer, enforce_egress, DataKind, EgressDescriptor, EgressReason,
+    emit_external_transfer, enforce_egress, EgressDescriptor, EgressReason,
 };
-
-pub(super) use DataKind;
 
 /// Enforce before disclosing and sending. Disclose only the actual destination
 /// origin, never its URL credentials, query parameters, filenames or payload.
