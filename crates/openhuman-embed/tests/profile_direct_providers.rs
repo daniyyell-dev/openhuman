@@ -164,7 +164,7 @@ async fn scenario() {
             "web_answer".into(),
             "web_contents".into(),
         ]))
-        .can_use_tool(|_| Box::pin(async { ToolHookDecision::Proceed }))
+        .can_use_tool(|_| Box::pin(async { ToolHookDecision::default() }))
         .channel_permissions([("web_channel", PermissionLevel::Execute)])
         .build()
         .await

@@ -141,6 +141,7 @@ tinyflows-import = { path = "../../vendor/tinyflows/crates/tinyflows-import", de
 # of vendor/tinyagents at vendor/tinyagents/vendor/tinyinference) — declared
 # below as its own path dependency for the same "one checkout, one type
 # identity" reason `tinytools` is.
+tinyagents-hooks = { workspace = true, features = ["goals"] }
 tinyagents-harness = { path = "../../vendor/tinyagents/crates/tinyagents-harness", features = [
     "sqlite",
     "multimodal",

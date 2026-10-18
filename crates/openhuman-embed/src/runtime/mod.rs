@@ -41,7 +41,7 @@
 //! [`ServiceSet`], the compiled-and-registered [`DomainSet`] and the API key.
 //! An agent owns everything the core reads through its ambient context:
 //! its `Config` (provider route and model, MCP servers, autonomy tier,
-//! `action_dir`), its [`AgentDefinition`](openhuman_core::agent::harness::host_definition::AgentDefinition)
+//! `action_dir`), its [`AgentDefinition`](openhuman_core::agent_registry::host_definition::AgentDefinition)
 //! (system prompt, tool scope, sandbox mode), its profile (allowlists,
 //! dedicated memory and transcripts), its skills root, its narrowed
 //! `DomainSet` and [`ToolGroups`], its approval settings, sub-agents, MCP
@@ -244,8 +244,8 @@ impl Drop for CoreGuard {
         // Dropping it also stops the background services it started.
         drop(self.core.take());
         if let Some(installed) = self.session_store.take() {
-            if openhuman_core::agent::session_store::clear_if(&installed) {
-                openhuman_core::agent::session_store::restore(self.previous_session_store.take());
+            if openhuman_core::storage::sessions::clear_if(&installed) {
+                openhuman_core::storage::sessions::restore(self.previous_session_store.take());
             }
         }
         drop(

@@ -98,7 +98,7 @@ Inside `generation/`:
   belong to TinyAgents (`tinyagents_harness::media`, in `vendor/tinyagents`).
 - Provider keys, billing, the proxy route and the generators that reach it
   belong to the host (`openhuman-tinyhumans`: `integrations/media`).
-- Artifact storage belongs to `agent::artifacts`.
+- Artifact storage belongs to `artifacts`.
 
 ## Gotchas
 

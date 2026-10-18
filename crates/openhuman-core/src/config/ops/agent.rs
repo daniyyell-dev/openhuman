@@ -420,8 +420,8 @@ pub async fn ensure_agent_dirs(config: &mut Config) {
         );
     }
     let report =
-        crate::agent::artifacts::migrate_legacy_artifacts(&config.workspace_dir, &files_dir).await;
-    if report != crate::agent::artifacts::MigrationReport::default() {
+        crate::artifacts::migrate_legacy_artifacts(&config.workspace_dir, &files_dir).await;
+    if report != crate::artifacts::MigrationReport::default() {
         tracing::info!(
             moved = report.moved,
             cleaned = report.cleaned,

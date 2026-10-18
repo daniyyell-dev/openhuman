@@ -5,7 +5,7 @@
 //! [`Runtime::agent`](crate::Runtime::agent) assembled from an
 //! [`AgentSpec`]: its own `Config` (provider route and model, MCP servers,
 //! autonomy tier, `action_dir`), its
-//! [`AgentDefinition`](openhuman_core::agent::harness::host_definition::AgentDefinition)
+//! [`AgentDefinition`](openhuman_core::agent_registry::host_definition::AgentDefinition)
 //! (system prompt, tool scope, sandbox mode), its
 //! derived
 //! [`CoreContext`](openhuman_core::core::runtime::CoreContext) every turn
@@ -34,7 +34,7 @@ pub use spec::{AgentSpec, MemoryBinding};
 use std::path::Path;
 use std::sync::Arc;
 
-use openhuman_core::agent::harness::host_definition::AgentDefinition;
+use openhuman_core::agent_registry::host_definition::AgentDefinition;
 use openhuman_core::config::Config;
 use openhuman_core::core::runtime::{CoreContext, CoreRuntime};
 
@@ -140,7 +140,10 @@ pub(crate) struct AgentInner {
     /// The agent's own in-process tools, rebuilt per turn. See
     /// [`AgentSpec::tools`](super::AgentSpec::tools) for why it is a factory.
     pub(crate) host_tools: Option<openhuman_core::agent::HostTools>,
-    pub(crate) hooks: openhuman_core::agent::hooks::HookScope,
+    pub(crate) hooks: tinyagents_hooks::scope::HookScope<
+        openhuman_core::agent::tinyagents::host::OpenHumanRunContext,
+        tinyagents_harness::cost::TurnCost,
+    >,
     pub(crate) lifecycle: lifecycle::Lifecycle,
     pub(crate) mcp_cleanup: std::sync::Mutex<Option<openhuman_core::mcp::host::AgentMcpCleanup>>,
     /// Built from [`ToolScopeSpec::HostOnly`]: every turn's session is built
@@ -280,12 +283,16 @@ impl Agent {
     }
 
     /// Add, replace, or remove an agent-local post-turn hook by name.
-    pub fn post_turn_hook(&self, name: &str, hook: Option<Arc<dyn crate::seams::PostTurnHook>>) {
+    pub fn post_turn_hook(&self, name: &str, hook: Option<Arc<dyn crate::seams::LearningSink>>) {
         self.inner.overrides.post_turn_hook(name, hook);
     }
 
     /// Add, replace, or remove an agent-local tool hook by name.
-    pub fn tool_hook(&self, name: &str, hook: Option<Arc<dyn crate::seams::ToolHook>>) {
+    pub fn tool_hook(
+        &self,
+        name: &str,
+        hook: Option<Arc<dyn crate::seams::ToolHook<crate::seams::OpenHumanRunContext>>>,
+    ) {
         self.inner.overrides.tool_hook(name, hook);
     }
 
@@ -321,9 +328,9 @@ impl Agent {
         &self.inner.layout.skills
     }
 
-    /// `<workspace>/agents/<id>/session_raw/` — where this agent's transcripts
-    /// are written. Conversations it wrote earlier into the workspace's shared
-    /// `session_raw/` stay readable and are copied here when resumed.
+    /// `<workspace>/agents/<id>/session_raw/`, the legacy JSONL import
+    /// directory associated with this agent. New transcripts use the runtime's
+    /// session-store provider and are not necessarily written to this path.
     pub fn transcripts_dir(&self) -> &Path {
         &self.inner.layout.transcripts
     }

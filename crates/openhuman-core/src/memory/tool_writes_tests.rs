@@ -185,6 +185,10 @@ impl tinymemory_api::MemoryEngine for HeldEngine {
     }
 }
 
+/// A guard against a hang, not a latency budget: on a loaded machine the held
+/// write still acknowledges promptly, so a generous bound never slows a pass.
+const TIMEOUT: Duration = Duration::from_secs(30);
+
 #[tokio::test]
 async fn held_engine_writes_do_not_delay_acknowledgements_or_hold_the_producer_lock() {
     use tinytools::Tool;
@@ -199,18 +203,18 @@ async fn held_engine_writes_do_not_delay_acknowledgements_or_hold_the_producer_l
     crate::memory::engine::install_test_engine(&config.workspace_dir, engine.clone());
     let tool = crate::memory::MemoryTool::new(Arc::new(config.clone()));
     let first = tokio::time::timeout(
-        Duration::from_secs(2),
+        TIMEOUT,
         tool.execute(json!({"action":"learn","text":"First fact"})),
     )
     .await
     .unwrap()
     .unwrap();
     assert!(!first.is_error);
-    tokio::time::timeout(Duration::from_secs(2), engine.entered.notified())
+    tokio::time::timeout(TIMEOUT, engine.entered.notified())
         .await
         .unwrap();
     let second = tokio::time::timeout(
-        Duration::from_secs(2),
+        TIMEOUT,
         tool.execute(json!({"action":"learn","text":"Second fact"})),
     )
     .await

@@ -25,8 +25,8 @@ impl Drop for SessionStoreCleanup {
         let Some(installed) = self.installed.take() else {
             return;
         };
-        if openhuman_core::agent::session_store::clear_if(&installed) {
-            openhuman_core::agent::session_store::restore(self.previous.take());
+        if openhuman_core::storage::sessions::clear_if(&installed) {
+            openhuman_core::storage::sessions::restore(self.previous.take());
         }
     }
 }
@@ -190,7 +190,7 @@ impl RuntimeBuilder {
         };
         if self.session_store.is_none() {
             if let Some(backend) = &storage_backend {
-                let stores = openhuman_core::agent::session_store::TenantSessionStores::new(
+                let stores = openhuman_core::storage::sessions::TenantSessionStores::new(
                     backend.clone(),
                     !openhuman_core::storage::driver_is_shared(backend.driver()),
                 )
@@ -238,7 +238,7 @@ impl RuntimeBuilder {
         let installed_session_store = self.session_store.clone();
         let previous_session_store = installed_session_store
             .clone()
-            .and_then(openhuman_core::agent::session_store::install);
+            .and_then(openhuman_core::storage::sessions::install);
         let mut session_store_cleanup = SessionStoreCleanup {
             installed: installed_session_store,
             previous: previous_session_store,

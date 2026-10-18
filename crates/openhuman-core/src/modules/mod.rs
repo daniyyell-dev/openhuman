@@ -108,10 +108,11 @@ mod storage_import_tinyconnectors;
 #[cfg(feature = "modules")]
 mod storage_import_tinyjuice;
 #[cfg(feature = "modules")]
+mod storage_import_tinyjuice_savings;
+#[cfg(feature = "modules")]
 mod storage_import_tinymcp;
 #[cfg(all(feature = "modules", feature = "web3"))]
 mod storage_import_tinywallet;
-#[cfg(feature = "modules")]
 pub mod tinybox;
 pub(crate) mod tinyflows;
 #[cfg(feature = "modules")]
@@ -205,6 +206,12 @@ settled_outcome!(
     storage_import_tinybox,
     storage_import_tinyjuice
 );
+#[cfg(feature = "modules")]
+impl Settled for storage_import_tinyjuice_savings::Outcome {
+    fn settled(&self) -> bool {
+        matches!(self, Self::AlreadyDone | Self::Imported { .. })
+    }
+}
 #[cfg(all(feature = "modules", feature = "web3"))]
 settled_outcome!(storage_import_tinywallet);
 
@@ -397,6 +404,39 @@ pub async fn import_legacy_tinyjuice(
     .await;
     #[cfg(not(feature = "modules"))]
     let _ = (ctx, root, ttl);
+}
+
+/// Hands the legacy `state/tokenjuice_savings.json` under `workspace_dir` to
+/// the tinyjuice module (`ImportSavings`), once per file. Never fails the
+/// caller: an error is logged and the import is retried at the next install.
+pub async fn import_legacy_tinyjuice_savings(
+    ctx: &crate::core::runtime::DispatchCtx,
+    client: &tinybus::module::ModuleClient,
+    workspace_dir: &std::path::Path,
+) {
+    #[cfg(feature = "modules")]
+    {
+        let file = storage_import_tinyjuice_savings::legacy_file(workspace_dir);
+        import_once(
+            ctx,
+            "tinyjuice-savings",
+            storage_grant_schemas::tinyjuice::MODULE_ID,
+            &file,
+            storage_import_tinyjuice_savings::import_legacy(ctx, &file, |aggregate| async move {
+                client
+                    .call::<bool>(
+                        "tinyjuice",
+                        tinyjuice_bus::names::methods::IMPORT_SAVINGS,
+                        (aggregate,),
+                    )
+                    .await
+                    .map_err(|e| anyhow::anyhow!("ImportSavings: {e}"))
+            }),
+        )
+        .await;
+    }
+    #[cfg(not(feature = "modules"))]
+    let _ = (ctx, client, workspace_dir);
 }
 
 #[cfg(all(test, feature = "modules"))]

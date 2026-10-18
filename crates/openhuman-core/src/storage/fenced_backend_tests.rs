@@ -240,8 +240,8 @@ impl LeaseStore for PausedAfterCheck {
         Ok(record)
     }
 
-    fn record_scope(&self) -> Option<Scope> {
-        self.inner.record_scope()
+    fn driver_fence(&self, key: &str, node: &str, epoch: u64) -> Option<tinystoragedrivers::Fence> {
+        self.inner.driver_fence(key, node, epoch)
     }
 }
 

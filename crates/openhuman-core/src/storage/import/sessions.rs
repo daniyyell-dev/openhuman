@@ -14,11 +14,11 @@
 //!   opened read-only.
 //! - **Whose sessions.** The workspace belongs to the operator. The run
 //!   ledger and the turn states land in the operator's default agent
-//!   ([`DEFAULT_AGENT`](crate::agent::session_store::DEFAULT_AGENT)), where
+//!   ([`DEFAULT_AGENT`](crate::storage::sessions::DEFAULT_AGENT)), where
 //!   the desktop's own work resolves them. A transcript stem names the agent
 //!   definition that wrote it, but only as a digest, so each stem is matched
 //!   against the digests of the known definitions
-//!   ([`crate::agent::harness::host_definition::AgentDefinitionRegistry`]) and
+//!   ([`crate::agent_registry::host_definition::AgentDefinitionRegistry`]) and
 //!   imported into that definition's scope, which is where the session host
 //!   resumes it. A stem that matches none lands in the default agent.
 //! - **Once.** A marker (like the other domains') is written when the whole
@@ -40,8 +40,8 @@ use tinyagents_session::DriverSessionStores;
 
 use super::tinyflows::{finish, marked};
 use super::{Outcome, Report, Snapshot};
-use crate::agent::session_store::DEFAULT_AGENT;
 use crate::config::Config;
+use crate::storage::sessions::DEFAULT_AGENT;
 use crate::storage::{Scope, StorageBackend};
 
 /// The marker name of the session import.
@@ -132,13 +132,13 @@ fn import(backend: &Arc<dyn StorageBackend>, config: &Config) -> Result<Outcome>
 /// encode to in a stem.
 fn known_agents() -> HashMap<String, String> {
     let mut ids: Vec<String> =
-        crate::agent::harness::host_definition::AgentDefinitionRegistry::builtins_only()
+        crate::agent_registry::host_definition::AgentDefinitionRegistry::builtins_only()
             .list()
             .iter()
             .map(|def| def.id.clone())
             .collect();
     if let Some(current) =
-        crate::agent::harness::host_definition::AgentDefinitionRegistry::current()
+        crate::agent_registry::host_definition::AgentDefinitionRegistry::current()
     {
         ids.extend(current.list().iter().map(|def| def.id.clone()));
     }

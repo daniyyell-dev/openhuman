@@ -115,7 +115,7 @@ user message
 session host prelude ----> prefetch::pre_turn
 (agent/session_host/          takes a completed cached TurnPack (or none)
  runtime_session/             queues user log (index 2n), recall and
- memory_ingest.rs)            optional date hint in a scoped worker
+ session_hooks.rs)             optional date hint in a scoped worker
    v
 MemoryPackMiddleware ----> adds the pack to each model request of the
 (agent/tinyagents/            turn as an ephemeral instruction; it is
@@ -407,7 +407,7 @@ sits in the app directory shared by all accounts
   `tinymemory-integrations`, `tinymemory-import`; the CortexDB engine is in
   its nested `tinycortex`). Fix engine or lifecycle behavior there.
 - Turn delivery belongs to the agent harness: the session host prelude
-  (`agent/session_host/runtime_session/memory_ingest.rs`), the pack
+  (`memory/lifecycle/session_hooks.rs`), the pack
   middleware and the compaction summarizer live under `agent/`.
 - Chat transcripts are owned by `threads`; this folder only reads them for
   backfill and forgets their memory on delete.

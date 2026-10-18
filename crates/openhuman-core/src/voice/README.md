@@ -426,9 +426,11 @@ Voice calls currently have no chat routing argument, so these events are
 unrouted, like other background egress events. Realtime voice sessions are a
 separate transport and are outside this change.
 
-Regression tests in [`egress_tests.rs`](./egress_tests.rs) exercise hosted STT/TTS,
+Regression tests in [`egress_tests.rs`](./egress_tests.rs) exercise external
 OpenAI-compatible STT/TTS, Deepgram STT and ElevenLabs STT/TTS against loopback
-mock servers, with the `voice` Cargo feature enabled.
+mock servers. Hosted STT/TTS regressions live in
+[`openhuman-tinyhumans/src/voice/egress_tests.rs`](../../../openhuman-tinyhumans/src/voice/egress_tests.rs),
+where the hosted implementation is owned. Run both crates with the `voice` Cargo feature enabled.
 
 Standalone voice installs the loaded configuration’s live security policy before
 starting recording tasks, so worker threads enforce the saved privacy mode.

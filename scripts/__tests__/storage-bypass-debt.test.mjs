@@ -317,3 +317,46 @@ test("current thread and turn-state host facades remain curated after storage mi
     ),
   );
 });
+
+test("a Git-recorded move preserves only the original writer and allowance", () => {
+  const root = mkdtempSync(join(tmpdir(), "storage-debt-move-"));
+  const git = (...args) => execFileSync("git", args, {
+    cwd: root, encoding: "utf8", stdio: ["ignore", "pipe", "pipe"],
+  });
+  const oldPath = "crates/openhuman-core/src/old/state.rs";
+  const newPath = "crates/openhuman-core/src/new/state.rs";
+  const source = Array.from({ length: 30 }, (_, i) => "// original comment " + i).join("\n") +
+    "\ntokio::fs::write(path, bytes);\n";
+  const old = { ...row, path: oldPath };
+  const moved = { ...old, path: newPath };
+  const scanner = { scan, withoutAllowed: (_, x) => x, isTestFile: () => false, CURATED_VENDOR_ROOTS: [] };
+  try {
+    git("init", "-b", "main");
+    git("config", "user.name", "Test");
+    git("config", "user.email", "test@example.invalid");
+    mkdirSync(join(root, oldPath, ".."), { recursive: true });
+    mkdirSync(join(root, "scripts/ci"), { recursive: true });
+    writeFileSync(join(root, oldPath), source);
+    writeFileSync(join(root, "scripts/ci/storage-bypass-baseline.json"), JSON.stringify([old]));
+    writeFileSync(join(root, "scripts/ci/storage-bypass-extension.json"), "[]");
+    writeFileSync(join(root, "scripts/ci/storage-bypass-allow-reasons.json"), JSON.stringify([{ ...old, site: old.text }]));
+    git("add", ".");
+    git("commit", "-m", "original writer");
+    git("update-ref", "refs/remotes/upstream/main", "HEAD");
+    git("switch", "-c", "move");
+    mkdirSync(join(root, newPath, ".."), { recursive: true });
+    git("mv", oldPath, newPath);
+    writeFileSync(join(root, newPath), source + "tokio::fs::write(other, bytes);\n");
+    git("add", ".");
+    const previous = historicalFindings(root, scanner);
+    assert.deepEqual(validateCoverageDebt([moved], [moved], [], previous), []);
+    assert.deepEqual(validateAllowances([moved], [{ ...moved, site: moved.text }], previous), []);
+    const added = { ...moved, text: "tokio::fs::write(other, bytes);" };
+    assert.match(validateCoverageDebt([moved, added], [moved, added], [], previous).join("\n"), /growth forbidden/);
+    assert.match(validateAllowances([moved, added], [{ ...added, site: added.text }], previous).join("\n"), /growth forbidden/);
+    const copied = { ...moved, path: "crates/openhuman-core/src/copied.rs" };
+    assert.match(validateCoverageDebt([copied], [copied], [], previous).join("\n"), /growth forbidden/);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});

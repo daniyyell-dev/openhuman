@@ -33,3 +33,7 @@ pub(super) fn disclose_speech_transfer(
     emit_external_transfer(None, descriptor);
     Ok(())
 }
+
+#[cfg(test)]
+#[path = "egress_tests.rs"]
+mod tests;

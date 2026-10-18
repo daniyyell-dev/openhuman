@@ -98,14 +98,14 @@
     "issue": "https://github.com/tinyhumansai/openhuman/issues/7434"
   },
   {
-    "path": "crates/openhuman-core/src/agent/artifacts/files.rs",
+    "path": "crates/openhuman-core/src/artifacts/files.rs",
     "rule": "json-write",
     "site": "match tokio::fs::OpenOptions::new()",
     "reason": "Historical local artifact content reservation; a native BlobStore now exists, so this is migration debt, not a missing blob capability.",
     "issue": "https://github.com/tinyhumansai/openhuman/issues/7425"
   },
   {
-    "path": "crates/openhuman-core/src/agent/artifacts/tiny_store.rs",
+    "path": "crates/openhuman-core/src/artifacts/tiny_store.rs",
     "rule": "json-write",
     "site": "tokio::fs::write(&dest, latest.body.as_bytes()).await?;",
     "reason": "writes a text artifact's newest version into its file in the user-visible files folder; the deliverable is a user file on every backend, the versioned record itself goes through the artifact store",

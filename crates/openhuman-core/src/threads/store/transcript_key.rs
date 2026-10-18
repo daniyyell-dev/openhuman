@@ -1,7 +1,7 @@
 //! The session-store key a thread's transcripts were written under.
 //!
 //! A thread's transcripts live in the session store of the agent key the
-//! session host wrote them under (`agent::session_store::agent_key_for`:
+//! session host wrote them under (`storage::sessions::agent_key_for`:
 //! `<profile>~<agent>` for a SaaS profile, else the agent, else the chat
 //! agent). That key follows `[agent] chat_agent_id`, so after an operator
 //! changes the chat agent, a reader that re-derives the key from the current

@@ -35,11 +35,9 @@ fn isolated_event_test(name: &str) -> bool {
 
 #[derive(Clone, Copy, Debug)]
 enum Route {
-    HostedStt,
     OpenaiStt,
     DeepgramStt,
     ElevenlabsStt,
-    HostedTts,
     OpenaiTts,
     ElevenlabsTts,
 }
@@ -47,11 +45,9 @@ enum Route {
 impl Route {
     fn path(self) -> &'static str {
         match self {
-            Self::HostedStt => "/openai/v1/audio/transcriptions",
             Self::OpenaiStt => "/audio/transcriptions",
             Self::DeepgramStt => "/listen",
             Self::ElevenlabsStt => "/speech-to-text",
-            Self::HostedTts => "/openai/v1/audio/speech",
             Self::OpenaiTts => "/audio/speech",
             Self::ElevenlabsTts => "/text-to-speech/test-voice",
         }
@@ -60,7 +56,7 @@ impl Route {
     fn is_stt(self) -> bool {
         matches!(
             self,
-            Self::HostedStt | Self::OpenaiStt | Self::DeepgramStt | Self::ElevenlabsStt
+            Self::OpenaiStt | Self::DeepgramStt | Self::ElevenlabsStt
         )
     }
 
@@ -69,10 +65,9 @@ impl Route {
             Self::DeepgramStt => {
                 serde_json::json!({"results":{"channels":[{"alternatives":[{"transcript":"recognized words"}]}]}})
             }
-            Self::HostedStt | Self::OpenaiStt | Self::ElevenlabsStt => {
+            Self::OpenaiStt | Self::ElevenlabsStt => {
                 serde_json::json!({"text":"recognized words"})
             }
-            Self::HostedTts => serde_json::json!({"audio_base64":"AQID","audio_mime":"audio/mpeg"}),
             _ => {
                 return ResponseTemplate::new(200)
                     .insert_header("content-type", "audio/mpeg")
@@ -84,20 +79,6 @@ impl Route {
 
     async fn call(self, config: &Config, endpoint: &str) -> Result<String, String> {
         match self {
-            Self::HostedStt => crate::voice::cloud_transcribe::transcribe_cloud(
-                config,
-                "AQID",
-                &Default::default(),
-            )
-            .await
-            .map(|o| o.value.text),
-            Self::HostedTts => crate::voice::reply_speech::synthesize_reply(
-                config,
-                "private spoken words",
-                &Default::default(),
-            )
-            .await
-            .map(|o| o.value.audio_base64),
             Self::OpenaiStt | Self::DeepgramStt | Self::ElevenlabsStt => {
                 let style = match self {
                     Self::DeepgramStt => SttApiStyle::Deepgram,
@@ -135,11 +116,9 @@ async fn check_speech_requests(mode: PrivacyMode) {
     let _mode = test_privacy_scope(mode);
     let mut failures = Vec::new();
     for route in [
-        Route::HostedStt,
         Route::OpenaiStt,
         Route::DeepgramStt,
         Route::ElevenlabsStt,
-        Route::HostedTts,
         Route::OpenaiTts,
         Route::ElevenlabsTts,
     ] {
@@ -253,8 +232,8 @@ async fn check_speech_requests(mode: PrivacyMode) {
 }
 
 #[tokio::test]
-async fn local_only_blocks_all_hosted_and_external_speech_uploads() {
-    if !isolated_event_test("local_only_blocks_all_hosted_and_external_speech_uploads") {
+async fn local_only_blocks_all_external_speech_uploads() {
+    if !isolated_event_test("local_only_blocks_all_external_speech_uploads") {
         return;
     }
     check_speech_requests(PrivacyMode::LocalOnly).await;
