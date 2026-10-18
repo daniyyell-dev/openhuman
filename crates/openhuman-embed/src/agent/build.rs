@@ -362,6 +362,7 @@ pub(crate) fn instantiate(runtime: &Runtime, spec: AgentSpec) -> Result<AgentInn
         host_tools: parts.host_tools,
         hooks: parts.hooks,
         lifecycle,
+        mcp_cleanup: Default::default(),
         host_only,
     })
 }
@@ -493,6 +494,7 @@ fn map_harness_err(err: crate::HarnessError) -> AgentError {
         crate::HarnessError::Workspace { what, source } => AgentError::Workspace { what, source },
         crate::HarnessError::Invalid(msg) => AgentError::Invalid(msg),
         crate::HarnessError::Call(e) => AgentError::Call(e),
+        crate::HarnessError::McpCleanup(e) => AgentError::McpCleanup(e),
         crate::HarnessError::Build(e) => AgentError::Invalid(format!("{e:#}")),
         crate::HarnessError::AlreadyRunning => AgentError::Invalid(err.to_string()),
     }

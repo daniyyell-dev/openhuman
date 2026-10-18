@@ -160,6 +160,28 @@ pub(crate) fn storage_master_key() -> Result<[u8; KEY_LEN], String> {
     }
 }
 
+/// Whether the storage master key can be resolved without minting a new one:
+/// an operator key (env), a host key source, an already loaded key, or an
+/// existing workspace key file. A layout migration that deletes the plaintext
+/// credential files only imports them when this holds, because a key minted
+/// by an offline tool would not match the one the desktop later loads.
+pub(crate) fn storage_master_key_resolvable() -> bool {
+    let env_set =
+        |name: &str| std::env::var_os(name).is_some_and(|v| !v.to_string_lossy().trim().is_empty());
+    let dir = crate::security::secret_storage::store::workspace_dir_for_file_backend();
+    resolvable(
+        matches!(MASTER_KEY.get(), Some(Ok(Some(_)))),
+        env_set(MASTER_KEY_ENV) || env_set(MASTER_KEY_FILE_ENV),
+        key_source::installed_master_key_source().is_some(),
+        dir.join("keyring/master.key").is_file(),
+    )
+}
+
+/// The pure decision behind [`storage_master_key_resolvable`].
+pub(crate) fn resolvable(loaded: bool, env: bool, host: bool, key_file: bool) -> bool {
+    loaded || env || host || key_file
+}
+
 /// Runs `init` at most once per `cell` and reports its outcome on every call.
 ///
 /// A configuration error is stored in the cell rather than leaving it empty

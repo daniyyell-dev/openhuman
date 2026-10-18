@@ -4,18 +4,51 @@
 use crate::agent::turn_origin::AgentTurnOrigin;
 use tinyagents_definition::SandboxMode;
 
-use std::time::Duration;
+use std::{sync::Arc, time::Duration};
 
 /// OpenHuman product values that tools read from the run through
 /// `ToolExecutionContext::host::<OpenHumanRunExt>()`, installed by
 /// [`OpenHumanRunContext::into_tinyagents`] with `RunContext::with_host`.
 /// It replaces the former per-value task-locals, which do not cross a module
 /// boundary.
-#[derive(Debug, Clone, Default, PartialEq, Eq)]
+#[derive(Clone, Default, PartialEq, Eq)]
 pub struct OpenHumanRunExt {
     /// Recency window narrowing integration task-fetch tools (morning
     /// briefing only); `None` leaves them unbounded.
     pub task_recency_window: Option<Duration>,
+    /// Explicit child-process environment supplied by the embedding host.
+    pub command_environment: Option<Arc<std::collections::BTreeMap<String, String>>>,
+}
+
+impl std::fmt::Debug for OpenHumanRunExt {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("OpenHumanRunExt")
+            .field("task_recency_window", &self.task_recency_window)
+            .field("command_environment", &self.command_environment.is_some())
+            .finish()
+    }
+}
+
+impl OpenHumanRunExt {
+    pub(super) fn from_run_context(context: &super::run_context::OpenHumanRunContext) -> Self {
+        Self {
+            task_recency_window: context.task_recency_window,
+            command_environment: context.command_environment.clone(),
+        }
+    }
+}
+
+/// Reads the explicit command environment from a tool's run context.
+pub(crate) fn command_environment_for_tool(
+    context: Option<&dyn tinytools::ToolRunContext>,
+) -> Option<Arc<std::collections::BTreeMap<String, String>>> {
+    context
+        .and_then(tinytools::ToolRunContext::host_extension)
+        .and_then(|extension| {
+            extension.downcast_ref::<tinyagents_harness::tool::ToolExecutionContext>()
+        })
+        .and_then(|context| context.host::<OpenHumanRunExt>())
+        .and_then(|ext| ext.command_environment.clone())
 }
 
 /// Reads the run's task-recency window from the explicit tool carrier.
@@ -155,7 +188,7 @@ pub(crate) fn sandbox_mode_for_tool(
 /// Reads the run's approval context from the explicit tool carrier. Direct tool
 /// dispatch (CLI, JSON-RPC, tests) has none, so a tool called that way sees the
 /// non-interactive default.
-pub(crate) fn approval_for_tool(
+pub fn approval_for_tool(
     context: Option<&dyn tinytools::ToolRunContext>,
 ) -> crate::security::approval::ApprovalTurnContext {
     context

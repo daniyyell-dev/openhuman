@@ -280,7 +280,9 @@ jobs:
     runs-on: ubuntu-22.04
     container:
       image: ghcr.io/tinyhumansai/openhuman_ci:latest
-    timeout-minutes: 30
+    # The chat, skills, and journeys shard exceeded 30 minutes on a hosted
+    # runner. Give full-suite shards the same cold-cache budget as the build.
+    timeout-minutes: 60
     strategy:
       fail-fast: false
       matrix:
@@ -405,7 +407,9 @@ jobs:
     runs-on: ubuntu-22.04
     container:
       image: ghcr.io/tinyhumansai/openhuman_ci:latest
-    timeout-minutes: 30
+    # Run every Rust integration E2E suite even when the hosted container is
+    # cold; the prior 30-minute limit cancelled this lane before completion.
+    timeout-minutes: 60
     env:
       CARGO_INCREMENTAL: "0"
       RUST_BACKTRACE: "1"

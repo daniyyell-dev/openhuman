@@ -295,6 +295,43 @@ run_in_process_modules() {
   while IFS= read -r module; do
     [ -n "$module" ] || continue
     echo "[rust-e2e]   in_process module: ${module}"
+    if [ "$module" = "config_auth_app_state_connectivity_e2e" ]; then
+      # These RPC fixtures share process-global credential and listener state;
+      # serialize them so one test cannot drop another test's ephemeral server.
+      bash "$SCRIPT_DIR/ci-cancel-aware.sh" "$CARGO_BIN" test \
+        --manifest-path Cargo.toml --features "$PRODUCT_FEATURES" \
+        --test in_process_all -- "${module}::" --test-threads=1 \
+        ${EXTRA_ARGS[@]+"${EXTRA_ARGS[@]}"}
+      continue
+    fi
+    if [ "$module" = "domain_modules_e2e" ]; then
+      # TinyFlows and TinyMCP use process-global module runtimes. A different
+      # test's RPC host teardown can leave a later module call unavailable, so
+      # run module-backed cases in fresh processes and keep the remaining
+      # domain tests together in their normal harness.
+      local -a isolated_module_tests=(
+        domain_modules_e2e::cron_update_applies_a_partial_patch_without_clobbering_unset_fields
+        domain_modules_e2e::mcp_audit_list_dispatches_internally_and_stays_out_of_the_schema_dump
+        domain_modules_e2e::mcp_clients_read_paths_validate_before_reaching_outward
+        domain_modules_e2e::mcp_tool_description_scan_flags_injection_and_spares_ordinary_prose
+      )
+      local -a skip_module_tests=()
+      local test_name
+      for test_name in "${isolated_module_tests[@]}"; do
+        skip_module_tests+=(--skip "$test_name")
+      done
+      bash "$SCRIPT_DIR/ci-cancel-aware.sh" "$CARGO_BIN" test \
+        --manifest-path Cargo.toml --features "$PRODUCT_FEATURES" \
+        --test in_process_all -- "${module}::" --test-threads=1 \
+        "${skip_module_tests[@]}" ${EXTRA_ARGS[@]+"${EXTRA_ARGS[@]}"}
+      for test_name in "${isolated_module_tests[@]}"; do
+        echo "[rust-e2e]     isolated test: ${test_name}"
+        bash "$SCRIPT_DIR/ci-cancel-aware.sh" "$CARGO_BIN" test \
+          --manifest-path Cargo.toml --features "$PRODUCT_FEATURES" \
+          --test in_process_all -- "$test_name" --exact ${EXTRA_ARGS[@]+"${EXTRA_ARGS[@]}"}
+      done
+      continue
+    fi
     bash "$SCRIPT_DIR/ci-cancel-aware.sh" "$CARGO_BIN" test \
       --manifest-path Cargo.toml --features "$PRODUCT_FEATURES" \
       --test in_process_all -- "${module}::" ${EXTRA_ARGS[@]+"${EXTRA_ARGS[@]}"}

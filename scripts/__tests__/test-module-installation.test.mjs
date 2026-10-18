@@ -165,6 +165,26 @@ test("MCP registry Rust integration tests run serially", () => {
   );
 });
 
+test("config/auth in-process integration tests run serially in both full runners", () => {
+  for (const [runner, path] of [
+    ["test-rust-with-mock.sh", localRustRunner],
+    ["test-rust-e2e.sh", rustE2eRunner],
+  ]) {
+    const source = readFileSync(path, "utf8");
+    const start = source.indexOf("run_in_process_modules() {");
+    const end = source.indexOf("\n}", start);
+    assert.ok(
+      start >= 0 && end > start,
+      `${runner} has an in-process module runner`,
+    );
+    assert.match(
+      source.slice(start, end),
+      /config_auth_app_state_connectivity_e2e[\s\S]*?--test-threads=1/,
+      `${runner} serializes auth RPC fixtures that share process-wide listeners`,
+    );
+  }
+});
+
 test("multi-server MCP tests run serially through the module-backed host", () => {
   const source = readFileSync(localRustRunner, "utf8");
   const fullSuiteStart = source.indexOf(

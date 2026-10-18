@@ -859,7 +859,10 @@ export async function completeOnboardingIfVisible(logPrefix = '[E2E]') {
   // Waiting for that snapshot prevents a slow bootstrap from being mistaken
   // for an already-onboarded session when the onboarding button has not
   // mounted yet.
-  await waitForAuthenticatedCore(20_000);
+  // Desktop cold starts can spend most of the core's 60-second startup budget
+  // before the loopback session is installed; auth bootstrap must have the
+  // same budget instead of expiring at the old 20-second default.
+  await waitForAuthenticatedCore(60_000);
   await walkOnboarding(logPrefix);
   const marker = await waitForHomePage(15_000);
   if (marker) return;

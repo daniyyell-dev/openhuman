@@ -270,8 +270,16 @@ run_in_process_modules() {
   while IFS= read -r module; do
     [ -n "$module" ] || continue
     echo "[test-rust-with-mock] in-process module: ${module}"
-    OPENHUMAN_MODULE_PATH="$connectors_module_path" \
-      cargo_test --test in_process_all -- "${module}::" "$@"
+    if [ "$module" = "config_auth_app_state_connectivity_e2e" ]; then
+      # RPC fixtures in this module bind ephemeral listeners and mutate
+      # process-wide credential state; parallel tests can tear down a peer's
+      # listener before its final auth call.
+      OPENHUMAN_MODULE_PATH="$connectors_module_path" \
+        cargo_test --test in_process_all -- "${module}::" --test-threads=1 "$@"
+    else
+      OPENHUMAN_MODULE_PATH="$connectors_module_path" \
+        cargo_test --test in_process_all -- "${module}::" "$@"
+    fi
   done < <(in_process_modules)
 }
 

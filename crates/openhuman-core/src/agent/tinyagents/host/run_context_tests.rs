@@ -452,6 +452,22 @@ fn task_recency_window_reaches_tools_as_a_host_extension_not_a_task_local() {
 }
 
 #[test]
+fn explicit_command_environment_reaches_tools_as_a_host_extension() {
+    let mut host = OpenHumanRunContext::new();
+    host.command_environment = Some(Arc::new(std::collections::BTreeMap::from([(
+        "TURN_OWNER".to_owned(),
+        "isolated".to_owned(),
+    )])));
+    let run = host.into_tinyagents(tinyagents_harness::context::RunConfig::new("run-env"));
+    assert_eq!(
+        run.host::<OpenHumanRunExt>()
+            .and_then(|ext| ext.command_environment.clone())
+            .and_then(|environment| environment.get("TURN_OWNER").cloned()),
+        Some("isolated".to_owned())
+    );
+}
+
+#[test]
 fn a_response_shape_belongs_to_the_root_turn_and_is_not_inherited() {
     use tinyagents_harness::middleware::{ResponseShape, ResponseShapeScope};
     let mut root = OpenHumanRunContext::new();

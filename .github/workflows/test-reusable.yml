@@ -130,7 +130,9 @@ jobs:
     if: inputs.run_rust_core
     name: Rust Core Tests + Quality
     runs-on: ubuntu-22.04
-    timeout-minutes: 60
+    # The full Rust test binary and serial host integration matrix exceed an
+    # hour on the hosted container under cold build/cache pressure.
+    timeout-minutes: 120
     container:
       image: ghcr.io/tinyhumansai/openhuman_ci:latest
     env:
@@ -235,9 +237,25 @@ jobs:
             inference::tokenjuice::tests::the_module_defers_a_summary_until_requested
             inference::tokenjuice::tests::released_queries_keep_cached_originals_in_the_module_and_accept_artifact_content
             tools::implementations::network::host::tests::tinyjuice_detects_and_converts_html
+            cron::bus_host::tests::execute_runs_the_registered_handler_and_reports_a_retryable_failure
+            cron::bus_host::tests::a_permanent_handler_outcome_stops_the_retry_loop
+            cron::bus_host::tests::an_agent_only_scheduler_refuses_shell_jobs_before_running_anything
+            cron::bus_host::tests::failed_is_accepted_for_any_job
+            cron::bus_host::tests::deliver_answers_with_the_delivery_status_string
+            cron::bus_host::tests::schedule_trigger_runs_a_system_job_and_records_the_handler_result
+            cron::bus_host::tests::schedule_trigger_for_an_unknown_flow_is_answered_not_failed
+            cron::bus_host::tests::dropping_the_registration_stops_serving_the_object
+            cron::documents_port::tests::the_port_serves_the_contracts_document_interface_and_reports_capabilities
+            cron::documents_port::tests::a_second_absent_write_comes_back_as_a_conflict_kind
+            cron::documents_port::tests::a_collection_outside_the_schedule_port_is_refused
+            cron::documents_port::tests::an_unknown_operation_is_refused_not_guessed
+            cron::documents_port::tests::one_object_is_served_per_scope_and_reused
           )
+          MODULE_TEST_SKIP_ARGS=()
+          for module_test in "${MODULE_TESTS[@]}"; do
+            MODULE_TEST_SKIP_ARGS+=(--skip "$module_test")
+          done
           STAGED_MODULE_PATH="${OPENHUMAN_MODULE_PATH:-}"
-          STAGED_MODULE_SOURCE_DIR="${OPENHUMAN_MODULE_SOURCE_DIR:-}"
           echo "[test-reusable] feature set: ${FEATURES} (cli: ${CLI_FEATURES})"
 
           # `--features bin-tools` is load-bearing, not cosmetic: the
@@ -246,17 +264,14 @@ jobs:
           # `--bins` silently skips it and this lane goes green having compiled
           # none of it. Its tests would vanish too, with no error.
           # The regular libtest process runs tests in parallel. Keep the
-          # process-global, never-unloaded TinyBus modules out of that shared
-          # test process, then run each module-backed regression in its own
-          # process below. Boot and parallel resolver tests can otherwise race
-          # while attaching the same released library to the one module host.
-          unset OPENHUMAN_MODULE_PATH OPENHUMAN_MODULE_SOURCE_DIR
-          bash scripts/ci-cancel-aware.sh cargo test -p openhuman --lib --features "${CORE_FEATURES}"
+          # process-global TinyBus module tests out of it, then run each one in
+          # its own process below. Parallel resolver tests can race while
+          # attaching the same release, and TinyFlows callbacks can race with
+          # another test shutting down the process-global module runtime.
+          unset OPENHUMAN_MODULE_PATH
+          bash scripts/ci-cancel-aware.sh cargo test -p openhuman --lib --features "${CORE_FEATURES}" -- "${MODULE_TEST_SKIP_ARGS[@]}"
           if [ -n "$STAGED_MODULE_PATH" ]; then
             export OPENHUMAN_MODULE_PATH="$STAGED_MODULE_PATH"
-          fi
-          if [ -n "$STAGED_MODULE_SOURCE_DIR" ]; then
-            export OPENHUMAN_MODULE_SOURCE_DIR="$STAGED_MODULE_SOURCE_DIR"
           fi
           for module_test in "${MODULE_TESTS[@]}"; do
             echo "[test-reusable] isolated module test: ${module_test}"
@@ -292,7 +307,30 @@ jobs:
               while IFS= read -r module; do
                 [ -n "${module}" ] || continue
                 echo "[test-reusable] in-process module: ${module}"
-                bash scripts/ci-cancel-aware.sh cargo test -p openhuman-cli --features "${CLI_FEATURES}" --test "${target}" -- "${module}::"
+                if [ "${module}" = "domain_modules_e2e" ]; then
+                  isolated_tests=(
+                    domain_modules_e2e::cron_update_applies_a_partial_patch_without_clobbering_unset_fields
+                    domain_modules_e2e::mcp_audit_list_dispatches_internally_and_stays_out_of_the_schema_dump
+                    domain_modules_e2e::mcp_clients_read_paths_validate_before_reaching_outward
+                    domain_modules_e2e::mcp_tool_description_scan_flags_injection_and_spares_ordinary_prose
+                  )
+                  skip_args=()
+                  for test_name in "${isolated_tests[@]}"; do
+                    skip_args+=(--skip "${test_name}")
+                  done
+                  bash scripts/ci-cancel-aware.sh cargo test -p openhuman-cli \
+                    --features "${CLI_FEATURES}" --test "${target}" -- \
+                    "${module}::" --test-threads=1 "${skip_args[@]}"
+                  for test_name in "${isolated_tests[@]}"; do
+                    echo "[test-reusable] isolated in-process test: ${test_name}"
+                    bash scripts/ci-cancel-aware.sh cargo test -p openhuman-cli \
+                      --features "${CLI_FEATURES}" --test "${target}" \
+                      "${test_name}" -- --exact --test-threads=1
+                  done
+                else
+                  bash scripts/ci-cancel-aware.sh cargo test -p openhuman-cli \
+                    --features "${CLI_FEATURES}" --test "${target}" -- "${module}::"
+                fi
               done < <(in_process_modules)
             elif [ "${target}" = "json_rpc_e2e" ]; then
               # JSON-RPC E2E cases change process-global provider routes and

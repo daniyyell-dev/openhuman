@@ -724,4 +724,7 @@
 # 326/303/2 2026-10-16 Ratchet to the measured graph. CI (Linux, EX63 run
 #                      38878335779 on merge base 63c951aea7) reports flows at
 #                      326 packages / 303 names / 2 native against 328/304.
-flows:326:303:2
+# 321/301/2 2026-10-16 Re-measure after the upstream/main merge at ba83482245.
+#                      CI (Linux, EX63) reports five fewer packages and two
+#                      fewer unique crate names; native builds remain at two.
+flows:321:301:2
