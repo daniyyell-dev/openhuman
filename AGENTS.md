@@ -548,7 +548,7 @@ Direct rendered submodules under `vendor/`:
 
 | Submodule | Owns |
 | --- | --- |
-| `tiny-artifacts` | Versioned artifacts as a plain library (no bus contract): the record and version model, the `Artifacts` service and its rules (content fits the kind, file paths stay inside the host's `FileRoots` and pass its guard, revisions append, kept version files, publishing), the agent artifact tools, and the file-system store. OpenHuman owns the ports: the document-backed store, the card UI bridge, the protected-path guard and the cloud-storage publisher (`agent/artifacts/`). |
+| `tiny-artifacts` | Versioned artifacts as a plain library (no bus contract): the record and version model, the `Artifacts` service and its rules (content fits the kind, file paths stay inside the host's `FileRoots` and pass its guard, revisions append, kept version files, publishing), the agent artifact tools, and the file-system store. OpenHuman owns the ports: the document-backed store, the card UI bridge, the protected-path guard and the cloud-storage publisher (`artifacts/`). |
 | `tinyagents` | Provider-neutral agent harness and durable typed state graph: model/tool loop, tool-call dialects and parsing, middleware, retries, caching, sessions/transcripts, and graph execution. |
 | `tinybox` | Isolated execution environments for code the host does not trust; box lifecycle and isolation backends. |
 | `tinybus` | TinyBus runtime and module contracts: discovery/loading, ABI and manifest admission, transport, proxies, lifecycle, and module bus behavior. |

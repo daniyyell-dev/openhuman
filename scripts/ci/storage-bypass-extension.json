@@ -91,7 +91,7 @@
   },
   {
     "rule": "file-mutation",
-    "path": "crates/openhuman-core/src/agent/artifacts/migrate.rs",
+    "path": "crates/openhuman-core/src/artifacts/migrate.rs",
     "line": 183,
     "text": "tokio::fs::copy(src, &partial)",
     "occurrence": 1,
@@ -101,7 +101,7 @@
   },
   {
     "rule": "file-mutation",
-    "path": "crates/openhuman-core/src/agent/artifacts/migrate.rs",
+    "path": "crates/openhuman-core/src/artifacts/migrate.rs",
     "line": 206,
     "text": "if let Err(e) = tokio::fs::rename(&partial, &target).await {",
     "occurrence": 1,
@@ -111,7 +111,7 @@
   },
   {
     "rule": "file-mutation",
-    "path": "crates/openhuman-core/src/agent/artifacts/tiny_store.rs",
+    "path": "crates/openhuman-core/src/artifacts/tiny_store.rs",
     "line": 146,
     "text": "tokio::fs::copy(source, owned).await?",
     "occurrence": 1,
@@ -121,7 +121,7 @@
   },
   {
     "rule": "file-mutation",
-    "path": "crates/openhuman-core/src/agent/artifacts/tiny_store.rs",
+    "path": "crates/openhuman-core/src/artifacts/tiny_store.rs",
     "line": 180,
     "text": "tokio::fs::copy(&source, &dest).await?",
     "occurrence": 1,
@@ -131,7 +131,7 @@
   },
   {
     "rule": "file-mutation",
-    "path": "crates/openhuman-core/src/agent/attachments/legacy.rs",
+    "path": "crates/openhuman-core/src/attachments/legacy.rs",
     "line": 156,
     "text": "let linked = tokio::fs::hard_link(&temp, &path).await;",
     "occurrence": 1,
@@ -141,7 +141,7 @@
   },
   {
     "rule": "file-mutation",
-    "path": "crates/openhuman-core/src/agent/attachments/provider_cache.rs",
+    "path": "crates/openhuman-core/src/attachments/provider_cache.rs",
     "line": 173,
     "text": "tokio::fs::rename(&temp, cache).await",
     "occurrence": 1,
@@ -151,7 +151,7 @@
   },
   {
     "rule": "file-mutation",
-    "path": "crates/openhuman-core/src/agent/attachments/provider_source.rs",
+    "path": "crates/openhuman-core/src/attachments/provider_source.rs",
     "line": 245,
     "text": "let linked = tokio::fs::hard_link(&temp, &path).await;",
     "occurrence": 1,

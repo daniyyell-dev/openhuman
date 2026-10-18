@@ -207,7 +207,7 @@ fn take_counted(raw: &str) -> Option<(&str, &str)> {
 /// The agent id a host session store keeps this tenant's conversations under.
 ///
 /// Without a profile it is the agent, or
-/// [`DEFAULT_AGENT`](crate::agent::session_store::DEFAULT_AGENT) — today's
+/// [`DEFAULT_AGENT`](crate::storage::sessions::DEFAULT_AGENT) — today's
 /// keys (percent-escaping `%` and `~`, so it never holds a `~`). With a
 /// profile it is `<profile>~<agent|default>`, the profile escaped the same way
 /// so the first `~` always ends it. An agent
@@ -216,7 +216,7 @@ pub fn session_key(tenant: &Tenant) -> String {
     let agent = tenant
         .agent
         .as_deref()
-        .unwrap_or(crate::agent::session_store::DEFAULT_AGENT);
+        .unwrap_or(crate::storage::sessions::DEFAULT_AGENT);
     match &tenant.profile {
         Some(profile) => format!("{}~{agent}", escape_profile(profile)),
         // Escaped like a profile so an unprofiled key never contains `~` and

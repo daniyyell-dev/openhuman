@@ -151,7 +151,7 @@ fn is_token(name: &str) -> bool {
 
 /// The modified time and bytes of a regular file, or `None` for a link,
 /// directory or anything else; the file is never reached through a symlink.
-fn read_regular(path: &Path) -> Result<Option<(SystemTime, Vec<u8>)>> {
+pub(super) fn read_regular(path: &Path) -> Result<Option<(SystemTime, Vec<u8>)>> {
     use std::io::Read;
     let mut options = std::fs::File::options();
     options.read(true);

@@ -1,18 +1,18 @@
-//! The sub-agent lifecycle records on the storage port.
+//! Migration from retired OpenHuman sub-agent checkpoints.
 //!
-//! One record per scoped task key (`record/<key component>` in `tsd.kv`, owner
-//! `subagents`, namespace `lifecycle`) holds the key's pause checkpoint and
-//! its terminal outcome together, so "a terminal closes the pause" is one
-//! compare-and-swap rather than two files under a lock. A second value per task id
-//! (`index/<task component>`) lists the scoped keys that share the id.
+//! The host's former `subagents/lifecycle` KV values and lifecycle JSON
+//! files are compatibility sources. This adapter reads their product fields,
+//! imports missing file records once per backend/scope, and converts them
+//! into TinyAgents' neutral document records without changing source files
+//! or existing KV values.
 //!
-//! Before schema v2 these were `<workspace>/.openhuman/subagent_checkpoints/
-//! lifecycle/<component>.{pause,terminal}.json` and `task-<component>.index.json`
-//! guarded by `flock` files. [`LifecycleStore::open`] imports them once per
-//! backend and scope (`tsd.migrations`) and leaves the files in place.
+//! TinyAgents' `DocumentSubagentPersistence` owns active pause/terminal
+//! transitions, compare-and-swap and live-task lookup. The host retains only
+//! legacy schema conversion, product metadata and storage scope selection.
 
 use std::path::{Path, PathBuf};
 
+#[cfg(test)]
 use sha2::{Digest, Sha256};
 use tinyagents_orchestration::subagent::{SubagentError, SubagentOutcome, SubagentTaskKey};
 
@@ -21,11 +21,13 @@ use crate::storage::state_kv::StateKv;
 
 const OWNER: &str = "subagents";
 const NS: &str = "lifecycle";
-const IMPORT: &str = "lifecycle_dir";
+const IMPORT: &str = "lifecycle_dir_owner_adoption";
 
 /// A task's terminal outcome with the host facts the neutral outcome lacks.
 #[derive(Clone, serde::Serialize, serde::Deserialize)]
 pub(super) struct TerminalRecord {
+    #[serde(default)]
+    key: Option<SubagentTaskKey>,
     pub(super) outcome: SubagentOutcome,
     #[serde(default)]
     pub(super) agent_id: String,
@@ -46,6 +48,7 @@ impl From<CompatibleTerminalRecord> for TerminalRecord {
         match record {
             CompatibleTerminalRecord::Current(record) => record,
             CompatibleTerminalRecord::Legacy(outcome) => Self {
+                key: None,
                 outcome,
                 agent_id: String::new(),
                 elapsed_ms: 0,
@@ -73,6 +76,7 @@ fn failure(error: impl std::fmt::Display) -> SubagentError {
     SubagentError::Persistence(format!("{error:#}"))
 }
 
+#[cfg(test)]
 fn hex(value: &str) -> String {
     value
         .as_bytes()
@@ -86,6 +90,7 @@ fn hex(value: &str) -> String {
 /// inherit a rendered parent identifier, however; that exceptional form is
 /// hashed while keeping every key field in the digest input so distinct
 /// lifecycle scopes cannot alias.
+#[cfg(test)]
 fn bounded(encoded: String) -> String {
     if encoded.len() <= 180 {
         encoded
@@ -94,6 +99,7 @@ fn bounded(encoded: String) -> String {
     }
 }
 
+#[cfg(test)]
 pub(super) fn key_component(key: &SubagentTaskKey) -> String {
     bounded(format!(
         "{}-{}-{}-{}",
@@ -104,6 +110,7 @@ pub(super) fn key_component(key: &SubagentTaskKey) -> String {
     ))
 }
 
+#[cfg(test)]
 pub(super) fn task_component(task_id: &str) -> String {
     bounded(hex(task_id))
 }
@@ -126,31 +133,111 @@ fn workspace_of(checkpoint_dir: &Path) -> PathBuf {
     checkpoint_dir.to_path_buf()
 }
 
-/// The lifecycle store of one checkpoint directory's workspace.
+/// Legacy migration sources and destination documents in one acting scope.
 pub(super) struct LifecycleStore {
     kv: StateKv,
+    documents: std::sync::Arc<dyn tinystoragedrivers::DocumentStore>,
 }
 
 impl LifecycleStore {
     /// Opens the store for `checkpoint_dir`, importing its legacy lifecycle
     /// files once.
     pub(super) fn open(checkpoint_dir: &Path) -> Result<Self, SubagentError> {
-        let kv = StateKv::open(&workspace_of(checkpoint_dir), OWNER, NS).map_err(failure)?;
-        let legacy = checkpoint_dir.join("lifecycle");
-        kv.import_once(IMPORT, || import_legacy(&kv, &legacy))
-            .map_err(failure)?;
-        Ok(Self { kv })
+        Self::with_file_import(checkpoint_dir, true)
     }
 
+    /// A new terminal commit must win over an unadopted legacy file, while a
+    /// pause already in the previous document namespace remains authoritative.
+    pub(super) fn before_terminal(checkpoint_dir: &Path) -> Result<Self, SubagentError> {
+        Self::with_file_import(checkpoint_dir, false)
+    }
+
+    fn with_file_import(checkpoint_dir: &Path, import_files: bool) -> Result<Self, SubagentError> {
+        let kv = StateKv::open(&workspace_of(checkpoint_dir), OWNER, NS).map_err(failure)?;
+        if import_files {
+            let legacy = checkpoint_dir.join("lifecycle");
+            kv.import_once(IMPORT, || import_legacy(&kv, &legacy))
+                .map_err(failure)?;
+        }
+        let opened = crate::storage::local::open("subagents", &workspace_of(checkpoint_dir))
+            .map_err(failure)?;
+        let scoped = opened.scoped().map_err(failure)?;
+        Ok(Self {
+            kv,
+            documents: std::sync::Arc::clone(scoped.documents()),
+        })
+    }
+
+    /// Converts the retired host checkpoint schema into the owner's neutral
+    /// record namespace. Existing owner records win; source records and files
+    /// remain unchanged, and terminal records cannot reopen as pauses.
+    pub(super) fn neutral_store(
+        &self,
+    ) -> Result<tinyagents_orchestration::subagent::DocumentSubagentPersistence, SubagentError>
+    {
+        use super::persistence::OpenHumanPersistence;
+        use tinyagents_orchestration::subagent::{
+            DocumentSubagentPersistence, PersistedSubagentPause,
+        };
+        let store = DocumentSubagentPersistence::new(std::sync::Arc::clone(&self.documents))
+            .map_err(failure)?;
+        for (name, record) in self
+            .kv
+            .list::<LifecycleRecord>("record/")
+            .map_err(failure)?
+        {
+            let component = name.strip_prefix("record/").expect("listed record prefix");
+            let pause = record.pause.and_then(|checkpoint| {
+                let key = checkpoint.task_key.clone()?;
+                Some(PersistedSubagentPause {
+                    key,
+                    outcome: OpenHumanPersistence::checkpoint_outcome(checkpoint),
+                    replaces: None,
+                })
+            });
+            let terminal_key = record
+                .terminal
+                .as_ref()
+                .and_then(|record| record.key.clone());
+            let terminal = record.terminal.map(|record| {
+                let mut outcome = record.outcome;
+                if !record.agent_id.is_empty() {
+                    outcome
+                        .extensions
+                        .entry("agent_id".into())
+                        .or_insert(serde_json::json!(record.agent_id));
+                }
+                outcome
+                    .extensions
+                    .entry("elapsed_ms".into())
+                    .or_insert(serde_json::json!(record.elapsed_ms));
+                outcome
+            });
+            // Host files used a reversible component; owner files used a SHA
+            // of the serialized key. Pauses carry the key and can normalize.
+            if let Some(pause) = pause {
+                store.import_record(&pause.key.clone(), Some(pause), terminal)?;
+            } else if let Some(key) = terminal_key {
+                store.import_record(&key, None, terminal)?;
+            } else {
+                store.import_record_at(component, None, terminal)?;
+            }
+        }
+        Ok(store)
+    }
+
+    #[cfg(test)]
     fn record_name(key: &SubagentTaskKey) -> String {
         format!("record/{}", key_component(key))
     }
 
+    #[cfg(test)]
     fn index_name(task_id: &str) -> String {
         format!("index/{}", task_component(task_id))
     }
 
     /// The record of `key` (empty when nothing was written).
+    #[cfg(test)]
     pub(super) fn record(&self, key: &SubagentTaskKey) -> Result<LifecycleRecord, SubagentError> {
         Ok(self
             .kv
@@ -161,6 +248,7 @@ impl LifecycleStore {
 
     /// Changes the record of `key` under compare-and-swap; `change` may run
     /// more than once, and returns its result and whether it changed the record.
+    #[cfg(test)]
     pub(super) fn update<R: Send + 'static>(
         &self,
         key: &SubagentTaskKey,
@@ -172,6 +260,7 @@ impl LifecycleStore {
     }
 
     /// The scoped keys that share `task_id`.
+    #[cfg(test)]
     pub(super) fn index_keys(&self, task_id: &str) -> Result<Vec<SubagentTaskKey>, SubagentError> {
         Ok(self
             .kv
@@ -179,36 +268,6 @@ impl LifecycleStore {
             .map_err(failure)?
             .unwrap_or_default()
             .keys)
-    }
-
-    pub(super) fn add_index_key(&self, key: &SubagentTaskKey) -> Result<(), SubagentError> {
-        let key = key.clone();
-        self.kv
-            .update::<TaskIndex, ()>(&Self::index_name(&key.task_id), {
-                let key = key.clone();
-                move |index| {
-                    if index.keys.contains(&key) {
-                        return ((), false);
-                    }
-                    index.keys.push(key.clone());
-                    ((), true)
-                }
-            })
-            .map_err(failure)
-    }
-
-    pub(super) fn remove_index_key(&self, key: &SubagentTaskKey) -> Result<(), SubagentError> {
-        let key = key.clone();
-        self.kv
-            .update::<TaskIndex, ()>(&Self::index_name(&key.task_id), {
-                let key = key.clone();
-                move |index| {
-                    let before = index.keys.len();
-                    index.keys.retain(|candidate| candidate != &key);
-                    ((), index.keys.len() != before)
-                }
-            })
-            .map_err(failure)
     }
 }
 
@@ -234,7 +293,18 @@ fn import_legacy(kv: &StateKv, dir: &Path) -> anyhow::Result<()> {
             }
         };
         if let Some(component) = file.strip_suffix(".pause.json") {
-            match serde_json::from_slice::<SubagentCheckpointData>(&bytes) {
+            let checkpoint =
+                serde_json::from_slice::<SubagentCheckpointData>(&bytes).or_else(|original| {
+                    let persisted = serde_json::from_slice::<
+                        tinyagents_orchestration::subagent::PersistedSubagentPause,
+                    >(&bytes)
+                    .map_err(|_| original)?;
+                    super::persistence::OpenHumanPersistence::checkpoint_from_persisted_pause(
+                        persisted,
+                    )
+                    .map_err(<serde_json::Error as serde::de::Error>::custom)
+                });
+            match checkpoint {
                 Ok(pause) => {
                     kv.update::<LifecycleRecord, ()>(&format!("record/{component}"), move |r| {
                         if r.pause.is_none() {
@@ -253,7 +323,15 @@ fn import_legacy(kv: &StateKv, dir: &Path) -> anyhow::Result<()> {
         } else if let Some(component) = file.strip_suffix(".terminal.json") {
             match serde_json::from_slice::<CompatibleTerminalRecord>(&bytes) {
                 Ok(terminal) => {
-                    let terminal = TerminalRecord::from(terminal);
+                    let mut terminal = TerminalRecord::from(terminal);
+                    if let Some(key) = terminal.key.as_ref() {
+                        if let Some(outcome) = super::persistence::legacy_terminal::owner_terminal(
+                            dir.parent().unwrap_or(dir),
+                            key,
+                        )? {
+                            terminal.outcome = outcome;
+                        }
+                    }
                     kv.update::<LifecycleRecord, ()>(&format!("record/{component}"), move |r| {
                         if r.terminal.is_none() {
                             r.terminal = Some(terminal.clone());
@@ -315,3 +393,7 @@ fn import_legacy(kv: &StateKv, dir: &Path) -> anyhow::Result<()> {
 #[cfg(test)]
 #[path = "lifecycle_store_tests.rs"]
 mod tests;
+
+#[cfg(test)]
+#[path = "lifecycle_storage_adoption_tests.rs"]
+mod adoption_tests;

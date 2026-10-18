@@ -49,7 +49,8 @@ pub struct BuilderSummary {
     pub controller_extensions: Vec<DomainGroup>,
     /// The [`kind`](tinytools::ToolRanker::kind) of the tool ranker.
     pub tool_ranker: Option<String>,
-    /// Names of configured post-turn hooks.
+    /// Diagnostic labels for configured post-turn sinks, in builder order.
+    /// These labels are not runtime registration identities.
     pub post_turn_hooks: Vec<String>,
     /// Names of configured tool hooks.
     pub tool_hooks: Vec<String>,
@@ -93,7 +94,8 @@ impl RuntimeBuilder {
                 .seams
                 .post_turn_hooks
                 .iter()
-                .map(|hook| hook.name().to_string())
+                .enumerate()
+                .map(|(index, _)| format!("learning_sink_{index}"))
                 .collect(),
             tool_hooks: self
                 .seams

@@ -16,7 +16,7 @@
 //! injector additionally stamps `flow_id` on every span for filtering.
 //!
 //! Transport mirrors the agent-turn tracing path
-//! (`agent::progress_tracing::otlp::push_spans`): the endpoint is derived
+//! (`core::observability::progress_tracing::otlp::push_spans`): the endpoint is derived
 //! from the **current backend hostname** (`effective_backend_api_url`), auth
 //! is the live OpenHuman session bearer (the backend injects the real
 //! Langfuse keys server-side, stamps the authenticated user on every span and
@@ -126,7 +126,7 @@ fn flow_otlp_requests(
 
 /// The OTLP `service.name` for flow traces.
 fn flow_service_name() -> &'static str {
-    crate::agent::progress_tracing::export_brand().product
+    crate::core::observability::progress_tracing::export_brand().product
 }
 
 /// Exports one settled flow run to Langfuse as a single trace. Best-effort:

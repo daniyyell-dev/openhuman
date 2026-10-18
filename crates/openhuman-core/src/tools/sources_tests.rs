@@ -1,5 +1,5 @@
 use super::*;
-use crate::agent::host_runtime::NativeRuntime;
+use crate::modules::tinybox::host_runtime::NativeRuntime;
 use crate::tools::ops::all_tools_with_runtime;
 use tempfile::TempDir;
 use tinytools::ToolResult;

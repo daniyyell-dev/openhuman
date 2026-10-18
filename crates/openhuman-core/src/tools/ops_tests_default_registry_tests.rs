@@ -124,7 +124,7 @@ fn every_packed_tool_name_resolves_to_a_registered_tool() {
     // into the binary and must always parse, so an `Err` here is a broken
     // invariant worth failing loudly on rather than absorbing.
     let delegates: std::collections::HashSet<String> =
-        crate::agent::registry::agents::load_builtins()
+        crate::agent_registry::agents::load_builtins()
             .expect("built-in agent registry must load; without it every pack delegate would be reported as a phantom name")
             .into_iter()
             .filter_map(|d| d.delegate_name)
@@ -548,10 +548,9 @@ async fn document_tool_writes_into_the_configured_files_folder() {
         }))
         .await;
 
-    let (artifacts, _) =
-        crate::agent::artifacts::store::list_artifacts(&cfg.workspace_dir, 0, 10, None)
-            .await
-            .expect("list artifacts");
+    let (artifacts, _) = crate::artifacts::store::list_artifacts(&cfg.workspace_dir, 0, 10, None)
+        .await
+        .expect("list artifacts");
     assert_eq!(artifacts.len(), 1, "{artifacts:?}");
     assert_eq!(
         artifacts[0].file_root.as_deref(),

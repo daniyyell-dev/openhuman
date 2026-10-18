@@ -259,6 +259,7 @@ Migration steps:
 
 | Kind | Name | Version | Scope | Indexed fields |
 | --- | --- | --- | --- | --- |
+| collection | `juice.savings` | 1 | module |  |
 | blobs | `juice/ccr/` |  | module |  |
 
 Migration steps:

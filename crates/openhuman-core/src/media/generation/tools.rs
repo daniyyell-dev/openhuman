@@ -20,7 +20,7 @@ use tinytools::{PermissionLevel, Tool, ToolCategory, ToolResult};
 
 use super::artifact_tool::MediaArtifactTool;
 use super::provider::MediaGenerators;
-use crate::agent::artifacts::ArtifactKind;
+use crate::artifacts::ArtifactKind;
 use crate::config::Config;
 
 /// Image tool name (pinned by the `media` pack and agent allowlists).
@@ -65,7 +65,7 @@ pub fn media_tools_for_config(
         generators,
         action_dir,
         &root_config.workspace_dir,
-        crate::agent::artifacts::FileRoots::from_config(root_config),
+        crate::artifacts::FileRoots::from_config(root_config),
         // Each poll's job state feeds the call's progress heartbeat
         // (`super::progress`, wired per call by `MediaArtifactTool`), so a
         // multi-minute wait is not silent.
@@ -81,7 +81,7 @@ pub fn media_tools_from(
     generators: MediaGenerators,
     action_dir: &Path,
     workspace_dir: &Path,
-    files_dir: impl Into<crate::agent::artifacts::FileRoots>,
+    files_dir: impl Into<crate::artifacts::FileRoots>,
     video_wait: WaitPolicy,
 ) -> Vec<Box<dyn Tool>> {
     media_tools_from_with_allowlist(
@@ -98,7 +98,7 @@ fn media_tools_from_with_allowlist(
     generators: MediaGenerators,
     action_dir: &Path,
     workspace_dir: &Path,
-    files_dir: impl Into<crate::agent::artifacts::FileRoots>,
+    files_dir: impl Into<crate::artifacts::FileRoots>,
     video_wait: WaitPolicy,
     allowed_artifacts: MediaReferenceAllowlist,
 ) -> Vec<Box<dyn Tool>> {

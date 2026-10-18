@@ -48,9 +48,15 @@
 //! tinyflows stores (cron jobs, the flow catalog and checkpoints) are copied
 //! with `tinyflows-import`; see [`tinyflows`].
 
+pub mod live;
+mod schemas;
 pub mod sessions;
 mod snapshot;
 pub mod tinyflows;
+
+pub use schemas::{
+    all_session_import_controller_schemas, all_session_import_registered_controllers,
+};
 
 use std::path::Path;
 use std::sync::Arc;

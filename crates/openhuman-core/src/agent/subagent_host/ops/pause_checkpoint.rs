@@ -18,11 +18,7 @@
 /// an allow-list cannot be walked around by an encoding this check did not
 /// anticipate.
 pub(crate) fn is_safe_task_id(task_id: &str) -> bool {
-    !task_id.is_empty()
-        && task_id.len() <= 128
-        && task_id
-            .chars()
-            .all(|c| c.is_ascii_alphanumeric() || matches!(c, '-' | '_'))
+    tinyagents_orchestration::subagent::is_safe_task_id(task_id)
 }
 
 #[cfg(test)]

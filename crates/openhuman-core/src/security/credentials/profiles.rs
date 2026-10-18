@@ -440,6 +440,12 @@ impl Drop for AuthProfileLockGuard {
     }
 }
 
+/// Whether `bytes` parse as the persisted profiles document (what a read from
+/// the storage backend requires).
+pub(crate) fn is_persisted_document(bytes: &[u8]) -> bool {
+    serde_json::from_slice::<PersistedAuthProfiles>(bytes).is_ok()
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 struct PersistedAuthProfiles {
     #[serde(default = "default_schema_version")]

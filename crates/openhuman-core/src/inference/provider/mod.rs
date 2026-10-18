@@ -9,6 +9,7 @@ pub mod error_classify;
 pub mod error_code;
 pub mod factory;
 pub(crate) mod fallback_diagnostics;
+pub(crate) mod model;
 pub(crate) mod openai_codex;
 /// Provider-neutral managed-provider pieces that stay in the core.
 pub mod openhuman_backend_model;

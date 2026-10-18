@@ -664,13 +664,13 @@ description: "Host seams replace infrastructure ports; hooks observe or control 
 
 Runtime builders accept host-owned ports for storage, sessions, memory, tools and controller extensions. These are composition seams: the host supplies an implementation of the owning library's contract, while OpenHuman retains access policy, approvals and lifecycle.
 
-Post-turn and tool hooks can be registered runtime-wide or on one agent. Agent hooks compose with parent runtime hooks and do not leak into sibling contexts. Use stable hook names to replace or remove runtime registrations through the live API; changes apply to subsequent turns.
+Learning sinks and tool hooks can be registered runtime-wide or on one agent. Agent hooks compose with parent runtime hooks and do not leak into sibling contexts. Use the live API's registration key to replace or remove runtime registrations; changes apply to subsequent turns. Learning sinks receive the upstream `TurnSummary`, while tool hooks receive the turn's `OpenHumanRunContext` and tool event.
 
 ## Runtime and agent scope
 
 | Runtime responsibility | Agent or call responsibility |
 | --- | --- |
-| Shared port implementations and named global hook registrations | Scoped hooks and host overrides inherited by recursive child contexts |
+| Shared port implementations and keyed global hook registrations | Scoped hooks and host overrides inherited by recursive child contexts |
 
 ## Verified example
 
@@ -1406,7 +1406,7 @@ description: "A turn is one native model/tool loop; a session is the durable ide
 
 ## Attaching files
 
-A host that already holds a file's bytes (an inbound photo from a channel webhook, an upload) attaches it with `Turn::attach(HostAttachment::new(bytes, mime).named(name))`, or several at once with `Turn::attachments`. Each file is staged into the agent's acting workspace and reaches the model ahead of the message: `image/*` as an image block, anything else as a document block. A model that cannot take a file natively gets the core's fallback instead (extracted text for PDF and Office documents, a vision readout for images, metadata otherwise). The `[multimodal]` and `[multimodal_files]` count and size limits apply, and a turn over them fails before any model call. Blank or `application/octet-stream` types are sniffed from the name and bytes.
+A host that already holds a file's bytes (an inbound photo from a channel webhook, an upload) attaches it with `Turn::attach(HostAttachment::new(bytes, mime).named(name))`, or several at once with `Turn::attachments`. Each file is staged into the agent's acting workspace and reaches the model ahead of the message: `image/*` as an image block, anything else as a document block. The shared media request layer handles bounded text and archive fallbacks; OpenHuman supplies image readouts and TinyDocs extraction for supported documents when the selected model cannot accept them natively. Unsupported binary formats remain available to the model as bounded metadata. The `[multimodal]` and `[multimodal_files]` count and size limits apply, and a turn over them fails before any model call. Blank or `application/octet-stream` types are sniffed from the name and bytes.
 
 No local path is read, so attachments are accepted whatever the turn's origin, including external-channel turns whose `[IMAGE:…]`/`[FILE:…]` text markers are refused. Only a runtime-owned `Agent` carries them: a turn on a caller-built runtime's orchestrator (`Core::agent`) is refused with `attachments_unsupported` rather than run without its files, because `inference.agent_chat` carries only a string.
 
@@ -2532,7 +2532,7 @@ The agent and turn hooks are never installed in the global registry, so
 concurrent workers and later turns do not pick up one another's callbacks.
 Post-turn callbacks run asynchronously with an owned session snapshot.
 Independently spawned tasks that build sessions must explicitly inherit
-`openhuman_core::agent::hooks::HookScope` to carry scoped hooks.
+`tinyagents_hooks::scope::HookScope` to carry scoped hooks.
 
 Gateway attribution headers can be attached to `Route::header(name, value)`
 and used with `Turn::route`, or with `Provider::routed(route)` on an agent.

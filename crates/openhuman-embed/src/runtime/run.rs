@@ -145,7 +145,7 @@ impl CliGlobals {
             openhuman_core::memory::engine::install_host_engine(engine);
         }
         if let Some(provider) = self.session_store {
-            let _previous = openhuman_core::agent::session_store::install(provider);
+            let _previous = openhuman_core::storage::sessions::install(provider);
             log::debug!("[embed][cli] session store installed (process lifetime)");
         }
         self.seams.open_storage_blocking()?;

@@ -22,8 +22,8 @@ use tinystoragedrivers::secrets::SecretStore as _;
 
 use super::state::LayoutError;
 use super::Target;
-use crate::security::credentials::http_creds::{STORAGE_SECRET_NAME, STORE_FILENAME};
-use crate::security::credentials::profiles::{PROFILES_FILENAME, PROFILES_SECRET_NAME};
+use crate::security::credentials::http_creds::{self, STORAGE_SECRET_NAME, STORE_FILENAME};
+use crate::security::credentials::profiles::{self, PROFILES_FILENAME, PROFILES_SECRET_NAME};
 use crate::storage;
 
 /// The path prefix a profile-level plan entry carries (`@profile/<file>`),
@@ -35,6 +35,61 @@ pub const FILES: [(&str, &str); 2] = [
     (PROFILES_FILENAME, PROFILES_SECRET_NAME),
     (STORE_FILENAME, STORAGE_SECRET_NAME),
 ];
+
+/// A credential file the import would take: a regular file beside
+/// `config.toml` holding the document its store persists. `None` otherwise
+/// (missing, a symlink, or not that document: left in place).
+fn eligible(
+    profile_dir: &Path,
+    file: &str,
+) -> Result<Option<zeroize::Zeroizing<Vec<u8>>>, LayoutError> {
+    let path = profile_dir.join(file);
+    let meta = match std::fs::symlink_metadata(&path) {
+        Ok(meta) => meta,
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => return Ok(None),
+        Err(e) => return Err(e.into()),
+    };
+    if !meta.is_file() {
+        tracing::warn!(target: "openhuman::storage", file, "[layout] credential entry is not a regular file; left in place");
+        return Ok(None);
+    }
+    // A read that fails for any reason but disappearance aborts, so the
+    // migration stays resumable instead of publishing v2 without the file.
+    let bytes = match std::fs::read(&path) {
+        Ok(bytes) => zeroize::Zeroizing::new(bytes),
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => return Ok(None),
+        Err(e) => {
+            tracing::warn!(target: "openhuman::storage", file, error = %e, "[layout] credential file unreadable");
+            return Err(e.into());
+        }
+    };
+    let valid = if file == PROFILES_FILENAME {
+        profiles::is_persisted_document(&bytes)
+    } else {
+        http_creds::is_persisted_document(&bytes)
+    };
+    if !valid {
+        tracing::warn!(target: "openhuman::storage", file, "[layout] credential file is not a valid credential document; left in place");
+        return Ok(None);
+    }
+    Ok(Some(bytes))
+}
+
+/// The credential files a migration of `profile_dir` would import: the
+/// eligible ones, and none when no master key is resolvable. Read-only; the
+/// dry run uses it so its plan matches the run.
+pub fn candidates(profile_dir: &Path) -> Result<Vec<String>, LayoutError> {
+    if !crate::security::secret_storage::encrypted_file_backend::storage_master_key_resolvable() {
+        return Ok(Vec::new());
+    }
+    let mut found = Vec::new();
+    for (file, _) in FILES {
+        if eligible(profile_dir, file)?.is_some() {
+            found.push(file.to_owned());
+        }
+    }
+    Ok(found)
+}
 
 /// Imports the credential files of `target` into the v1 database's `local`
 /// scope and returns the file names that are now safe to archive and delete.
@@ -50,20 +105,9 @@ pub const FILES: [(&str, &str); 2] = [
 pub async fn import(target: &Target) -> Result<Vec<String>, LayoutError> {
     let mut files = Vec::new();
     for (file, secret) in FILES {
-        let path = target.profile_dir.join(file);
-        let Ok(meta) = std::fs::symlink_metadata(&path) else {
-            continue;
-        };
-        if !meta.is_file() {
-            tracing::warn!(target: "openhuman::storage", file, "[layout] credential entry is not a regular file; left in place");
-            continue;
+        if let Some(bytes) = eligible(&target.profile_dir, file)? {
+            files.push((file, secret, bytes));
         }
-        let bytes = read(&path)?;
-        if serde_json::from_slice::<serde_json::Value>(&bytes).is_err() {
-            tracing::warn!(target: "openhuman::storage", file, "[layout] credential file is not valid JSON; left in place");
-            continue;
-        }
-        files.push((file, secret, bytes));
     }
     if files.is_empty() {
         return Ok(Vec::new());
@@ -107,10 +151,6 @@ pub async fn import(target: &Target) -> Result<Vec<String>, LayoutError> {
     }
     drop(backend);
     Ok(imported)
-}
-
-fn read(path: &Path) -> Result<zeroize::Zeroizing<Vec<u8>>, LayoutError> {
-    Ok(zeroize::Zeroizing::new(std::fs::read(path)?))
 }
 
 #[cfg(test)]

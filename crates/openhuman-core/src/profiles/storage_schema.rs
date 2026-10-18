@@ -4,6 +4,10 @@
 //! | v1 | v2 | scope |
 //! |---|---|---|
 //! | `profiles` (`{profile_id, created_at (seconds), layout_version}`) | `profiles.registry` (`{profile_id, layout_version}`; creation time in tsd metadata) | cluster |
+//! | `leases` (`{owner, endpoint, epoch, expires_at_ms, released}`) | `tsd.leases`, owner `profiles` (`{holder, epoch, expires_ms, endpoint?, released?}`) | cluster |
+//!
+//! The lease move is not a document step (a step writes only its own
+//! owner's collections), so [`migrate_legacy_leases`] does it after the steps.
 //!
 //! The cluster scope is not a tenant, so boot's per-tenant migration never
 //! visits it; [`migrate_cluster`] runs this owner's steps over it, the first
@@ -79,7 +83,90 @@ pub async fn migrate_cluster(scoped: &ScopedStorage) -> Result<()> {
         .ensure_collection(&CollectionSpec::new(REGISTRY_COLLECTION))
         .await?;
     registry.migrate(scoped, &MigrateOptions::new()).await?;
+    migrate_legacy_leases(scoped).await?;
     Ok(())
+}
+
+/// The v1 lease collection.
+pub(super) const LEGACY_LEASE_COLLECTION: &str = "leases";
+
+/// The `tsd.leases` body of a v1 lease record, or `None` for a malformed one.
+fn lease_v2(old: &Value) -> Option<Value> {
+    let mut body = serde_json::Map::new();
+    body.insert("holder".into(), old.get("owner")?.as_str()?.into());
+    body.insert("epoch".into(), old.get("epoch")?.as_u64()?.into());
+    body.insert(
+        "expires_ms".into(),
+        i64::try_from(old.get("expires_at_ms")?.as_u64()?)
+            .unwrap_or(i64::MAX)
+            .into(),
+    );
+    if let Some(endpoint) = old.get("endpoint").and_then(Value::as_str) {
+        body.insert("endpoint".into(), endpoint.into());
+    }
+    if old.get("released").and_then(Value::as_bool) == Some(true) {
+        body.insert("released".into(), true.into());
+    }
+    Some(Value::Object(body))
+}
+
+/// Moves the v1 `leases` records of the cluster scope into `tsd.leases`
+/// (owner `profiles`), then drops the collection. A record already in
+/// `tsd.leases` wins: it is newer. Epochs carry over, so a holder fenced at
+/// the old epoch stays fenced. Returns the records moved.
+///
+/// This is a stop-the-world cutover, like the rest of schema v2 (the registry
+/// in this same scope moves the same way): every node of a deployment must
+/// run this version, because an old node would acquire in a recreated
+/// `leases` collection that new nodes never read.
+///
+/// # Errors
+///
+/// A storage error; the records not yet moved stay for the next open.
+pub async fn migrate_legacy_leases(scoped: &ScopedStorage) -> Result<usize> {
+    use tinystoragedrivers::{Capability, DocumentStoreExt, Key, Precondition, Query};
+    let docs = scoped.documents();
+    // A driver that cannot list collections is asked for the records
+    // directly, so a live legacy lease is never silently ignored.
+    if docs
+        .capabilities()
+        .contains(Capability::CollectionEnumeration)
+        && !docs
+            .collections("")
+            .await?
+            .iter()
+            .any(|name| name == LEGACY_LEASE_COLLECTION)
+    {
+        return Ok(0);
+    }
+    tinystoragedrivers::primitives::ensure(scoped).await?;
+    let mut moved = 0;
+    for legacy in docs
+        .query_all(LEGACY_LEASE_COLLECTION, &Query::all())
+        .await?
+    {
+        let Some(body) = lease_v2(&legacy.doc) else {
+            log::warn!("[profiles][lease] skipping a malformed legacy lease record");
+            continue;
+        };
+        let id = Key::of([crate::storage::lease::LEASE_OWNER, legacy.id.as_str()])?;
+        match docs
+            .put(
+                tinystoragedrivers::primitives::LEASES,
+                id.as_str(),
+                body,
+                Precondition::Absent,
+            )
+            .await
+        {
+            Ok(_) => moved += 1,
+            Err(error) if error.kind() == tinystoragedrivers::ErrorKind::Conflict => {}
+            Err(error) => return Err(error),
+        }
+    }
+    docs.drop_collection(LEGACY_LEASE_COLLECTION).await?;
+    log::info!("[profiles][lease] moved {moved} legacy lease records to tsd.leases");
+    Ok(moved)
 }
 
 #[cfg(test)]
